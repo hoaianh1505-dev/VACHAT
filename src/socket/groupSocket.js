@@ -1,0 +1,3 @@
+module.exports = (io, socket) => {
+    // ...group socket logic...
+};
