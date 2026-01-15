@@ -1,4 +1,4 @@
-# AVChat
+# VAChat
 
 Realtime chat app with group, friend, and AI support.  
 Tech: Node.js, MongoDB, Socket.IO, OpenAI.
