@@ -47,12 +47,6 @@ const socketHandlers = require('./socket/socketHandlers');
 socketHandlers(io);
 
 // Expose userSocketMap cho route sử dụng
-io.userSocketMap = {};
-
-// Socket.io handlers
-io.on('connection', (socket) => {
-    // ...socket handlers...
-});
 
 app.use('/', homeRoute);
 app.use('/', loginRoute);

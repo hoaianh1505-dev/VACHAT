@@ -22,6 +22,29 @@ function showSystemMessage(msg) {
     chatBox.appendChild(div);
 }
 
+// Lấy thông tin bạn bè từ danh sách friends (render sẵn trên trang)
+function getFriendInfo(friendId) {
+    const friendItem = document.querySelector(`.chat-item.friend-profile[data-id="${friendId}"]`);
+    if (!friendItem) return {};
+    const avatarImg = friendItem.querySelector('.avatar');
+    const avatar = avatarImg && avatarImg.tagName === 'IMG'
+        ? avatarImg.src
+        : undefined;
+    const usernameSpan = friendItem.querySelector('.friend-username');
+    const username = usernameSpan ? usernameSpan.textContent : '';
+    return { avatar, username };
+}
+
+// Lưu số đã đọc vào localStorage
+function setLastRead(friendId, count) {
+    const key = `chat_last_read_${friendId}`;
+    localStorage.setItem(key, count);
+}
+function getLastRead(friendId) {
+    const key = `chat_last_read_${friendId}`;
+    return parseInt(localStorage.getItem(key) || '0', 10);
+}
+
 // Chọn cuộc trò chuyện
 document.querySelectorAll('.chat-item.friend-profile').forEach(item => {
     item.addEventListener('click', async () => {
@@ -44,22 +67,42 @@ document.querySelectorAll('.chat-item.friend-profile').forEach(item => {
             data.messages.forEach(msg => {
                 const div = document.createElement('div');
                 div.className = 'message' + (msg.isSelf ? ' self' : '');
-                div.textContent = msg.content;
+                if (!msg.isSelf) {
+                    // Tin nhắn của bạn bè: hiển thị avatar + username
+                    const { avatar, username } = getFriendInfo(currentChat.id);
+                    div.innerHTML = `
+                        <div style="display:flex;align-items:flex-end;gap:8px;">
+                            <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
+                            <div>
+                                <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${username || ''}</div>
+                                <div>${msg.content}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Tin nhắn của mình: chỉ nội dung
+                    div.textContent = msg.content;
+                }
                 chatBox.appendChild(div);
             });
         }
+        // Đếm số tin nhắn đã đọc
+        setLastRead(item.dataset.id, data.messages ? data.messages.length : 0);
         // Reset badge khi mở chat
         const badge = item.querySelector('.unread-badge');
         if (badge) badge.style.display = 'none';
         if (pendingMessages[item.dataset.id]) delete pendingMessages[item.dataset.id];
+        // Scroll xuống cuối khi load lịch sử
+        chatBox.scrollTop = chatBox.scrollHeight;
     });
 });
 
 // Gửi tin nhắn
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    // Chỉ gửi khi đã chọn đúng bạn bè
     if (input.value && currentChat && currentChat.type === 'friend' && currentChat.id) {
+        const msg = input.value.trim();
+        if (!msg) return;
         // Gửi lên server lưu DB
         const res = await fetch('/send-message', {
             method: 'POST',
@@ -72,7 +115,7 @@ form.addEventListener('submit', async (e) => {
         });
         const result = await res.json();
         if (result.success) {
-            // Emit realtime, gửi đủ thông tin
+            // Chỉ emit socket sau khi lưu thành công
             socket.emit('chat message', {
                 chat: currentChat,
                 message: input.value,
@@ -91,7 +134,22 @@ form.addEventListener('submit', async (e) => {
                 data.messages.forEach(msg => {
                     const div = document.createElement('div');
                     div.className = 'message' + (msg.isSelf ? ' self' : '');
-                    div.textContent = msg.content;
+                    if (!msg.isSelf) {
+                        // Tin nhắn của bạn bè: hiển thị avatar + username
+                        const { avatar, username } = getFriendInfo(currentChat.id);
+                        div.innerHTML = `
+                            <div style="display:flex;align-items:flex-end;gap:8px;">
+                                <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
+                                <div>
+                                    <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${username || ''}</div>
+                                    <div>${msg.content}</div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Tin nhắn của mình: chỉ nội dung
+                        div.textContent = msg.content;
+                    }
                     chatBox.appendChild(div);
                 });
             }
@@ -102,28 +160,80 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
+// Khi load lại trang, hiển thị badge đúng số tin nhắn chưa đọc
+window.addEventListener('DOMContentLoaded', async () => {
+    // Lặp qua từng bạn bè
+    document.querySelectorAll('.chat-item.friend-profile').forEach(async item => {
+        const friendId = item.dataset.id;
+        // Gọi API lấy tổng số tin nhắn với bạn này
+        const res = await fetch(`/messages?chatType=friend&chatId=${friendId}`);
+        const data = await res.json();
+        const total = data.messages ? data.messages.length : 0;
+        const lastRead = getLastRead(friendId);
+        const unread = total - lastRead;
+        if (unread > 0) {
+            let badge = item.querySelector('.unread-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'unread-badge';
+                badge.style.background = '#ef4444';
+                badge.style.color = '#fff';
+                badge.style.fontSize = '0.8rem';
+                badge.style.borderRadius = '50%';
+                badge.style.padding = '2px 7px';
+                badge.style.marginLeft = '8px';
+                badge.style.fontWeight = 'bold';
+                item.appendChild(badge);
+            }
+            badge.textContent = unread;
+            badge.style.display = 'inline-block';
+            pendingMessages[friendId] = unread;
+        }
+    });
+});
+
 // Nhận tin nhắn realtime
 socket.on('chat message', (data) => {
-    console.log('Nhận socket chat message:', data);
-    // Nếu đang chat với đúng người thì hiển thị
-    // Sửa: so sánh currentChat.id với data.from nếu là người nhận
+    // Ép kiểu về string để so sánh chắc chắn đúng
+    const chatId = currentChat ? String(currentChat.id) : '';
+    const fromId = String(data.from);
+    const chatMsgId = String(data.chat.id);
+
     if (
         currentChat &&
         (
-            (data.isSelf && data.chat.id === currentChat.id) || // mình gửi
-            (!data.isSelf && data.from === currentChat.id)      // mình nhận
+            (data.isSelf && chatMsgId === chatId) ||
+            (!data.isSelf && fromId === chatId)
         )
     ) {
         const div = document.createElement('div');
         div.className = 'message' + (data.isSelf ? ' self' : '');
-        div.textContent = data.message;
+        if (!data.isSelf) {
+            // Tin nhắn của bạn bè: hiển thị avatar + username
+            const { avatar, username } = getFriendInfo(data.from);
+            div.innerHTML = `
+                <div style="display:flex;align-items:flex-end;gap:8px;">
+                    <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
+                    <div>
+                        <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${username || ''}</div>
+                        <div>${data.message}</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            div.textContent = data.message;
+        }
         chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
+        // Cập nhật số đã đọc khi đang mở chat
+        setLastRead(chatId, (chatBox.children.length));
     } else {
         // Nếu chưa mở cửa sổ chat với người gửi, tăng badge
-        // Sửa: badge ở bạn bè có id = data.isSelf ? data.chat.id : data.from
-        const friendId = data.isSelf ? data.chat.id : data.from;
+        const friendId = data.isSelf ? chatMsgId : fromId;
+        const lastRead = getLastRead(friendId);
         pendingMessages[friendId] = (pendingMessages[friendId] || 0) + 1;
+        setLastRead(friendId, lastRead); // Không tăng số đã đọc khi chưa mở chat
+        // Tìm và cập nhật badge trên danh sách bạn bè
         const friendItem = document.querySelector(`.chat-item.friend-profile[data-id="${friendId}"]`);
         if (friendItem) {
             let badge = friendItem.querySelector('.unread-badge');
@@ -282,6 +392,8 @@ searchBtn.onclick = async (e) => {
 // Đăng ký userId với socket server khi vào trang chat
 if (window.userId) {
     socket.emit('register-user', window.userId);
+} else {
+    alert('Không xác định được userId, bạn sẽ không nhận được tin nhắn realtime!');
 }
 
 // Tạo badge số lượng lời mời kết bạn trên nút chuông

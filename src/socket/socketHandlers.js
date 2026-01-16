@@ -1,15 +1,16 @@
 module.exports = (io) => {
     io.on('connection', (socket) => {
         socket.on('register-user', (userId) => {
-            io.userSocketMap[userId] = socket.id;
-            socket.userId = userId; // Lưu userId vào socket để xác định người gửi
+            const uid = String(userId);
+            io.userSocketMap[uid] = socket.id;
+            socket.userId = uid; // Lưu userId (string) vào socket
         });
 
         socket.on('chat message', (msg) => {
             // Chỉ xử lý chat giữa bạn bè (type: 'friend')
-            if (msg.chat.type === 'friend') {
+            if (msg.chat && msg.chat.type === 'friend') {
                 const fromId = socket.userId;
-                const toId = msg.chat.id;
+                const toId = String(msg.chat.id);
                 // Gửi cho người gửi (isSelf: true)
                 if (fromId && io.userSocketMap[fromId]) {
                     io.to(io.userSocketMap[fromId]).emit('chat message', {

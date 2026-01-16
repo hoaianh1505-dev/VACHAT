@@ -195,15 +195,47 @@ router.post('/send-message', async (req, res) => {
 
     try {
         const encrypted = encryptMessage(message);
-        // Sửa lại: dùng new mongoose.Types.ObjectId
+        // Tạo conversationId cố định giữa 2 user (thứ tự sắp xếp để nhất quán cả 2 phía)
+        const convId = [String(userId), String(chatId)].sort().join('_');
+
+        // toId là bạn bè (nếu chatType là friend)
         const toId = chatType === 'friend' ? new mongoose.Types.ObjectId(chatId) : undefined;
+
         const msg = await Message.create({
             chatType,
             chatId: new mongoose.Types.ObjectId(chatId),
+            conversationId: convId, // <-- lưu conversationId
             from: new mongoose.Types.ObjectId(userId),
             to: toId,
             content: encrypted
         });
+
+        // Emit realtime từ server (đảm bảo recipient nhận dù client không emit)
+        try {
+            const io = req.app.get('io');
+            const plain = (() => {
+                try { return decryptMessage(encrypted); } catch (e) { return '[unable to decrypt]'; }
+            })();
+            const payload = {
+                chat: { type: chatType, id: String(chatId), conversationId: convId },
+                message: plain,
+                from: String(userId),
+                to: String(chatId),
+                createdAt: msg.createdAt,
+                conversationId: convId
+            };
+            // Gửi cho sender (isSelf = true)
+            if (io && io.userSocketMap && io.userSocketMap[String(userId)]) {
+                io.to(io.userSocketMap[String(userId)]).emit('chat message', Object.assign({}, payload, { isSelf: true }));
+            }
+            // Gửi cho recipient (isSelf = false)
+            if (chatType === 'friend' && io && io.userSocketMap && io.userSocketMap[String(chatId)]) {
+                io.to(io.userSocketMap[String(chatId)]).emit('chat message', Object.assign({}, payload, { isSelf: false }));
+            }
+        } catch (e) {
+            console.warn('Emit realtime failed', e);
+        }
+
         res.json({ success: true, message: msg });
     } catch (err) {
         console.error('Lỗi lưu tin nhắn:', err);
@@ -216,22 +248,71 @@ router.get('/messages', async (req, res) => {
     const userId = req.session.user && req.session.user._id;
     const { chatType, chatId } = req.query;
     if (!userId || !chatType || !chatId) return res.json({ messages: [] });
-    let query = { chatType, chatId };
+
+    // Tính conversationId nhất quán
+    const convId = [String(userId), String(chatId)].sort().join('_');
+
+    // Query chính bằng conversationId (nếu có)
+    let query = { chatType, conversationId: convId };
+
+    // Fallback tương thích với dữ liệu cũ (nếu có message chưa có conversationId)
     if (chatType === 'friend') {
-        query.$or = [
-            { from: userId, to: chatId },
-            { from: chatId, to: userId }
-        ];
+        const legacyQuery = {
+            chatType,
+            $or: [
+                { chatId, from: userId, to: chatId },
+                { chatId, from: chatId, to: userId }
+            ]
+        };
+        // tìm cả 2 loại: có conversationId hoặc legacy
+        query = {
+            $or: [
+                { chatType, conversationId: convId },
+                legacyQuery
+            ]
+        };
     }
+
     const messages = await Message.find(query).sort({ createdAt: 1 });
-    // Giải mã nội dung
-    const result = messages.map(m => ({
-        from: m.from,
-        to: m.to,
-        content: decryptMessage(m.content),
-        createdAt: m.createdAt,
-        isSelf: m.from.toString() === userId
-    }));
+
+    // Đánh dấu đã đọc cho user hiện tại
+    const unreadIds = messages
+        .filter(m => !m.readBy || !m.readBy.includes(userId))
+        .map(m => m._id);
+    if (unreadIds.length > 0) {
+        await Message.updateMany(
+            { _id: { $in: unreadIds } },
+            { $addToSet: { readBy: userId } }
+        );
+    }
+
+    // Giải mã nội dung an toàn (bắt lỗi từng message)
+    const result = [];
+    for (const m of messages) {
+        try {
+            const plain = decryptMessage(m.content);
+            result.push({
+                from: m.from,
+                to: m.to,
+                content: plain,
+                createdAt: m.createdAt,
+                isSelf: m.from.toString() === String(userId),
+                readBy: m.readBy || []
+            });
+        } catch (e) {
+            console.warn('Failed to decrypt message', m._id, e);
+            // nếu giải mã fail, bỏ qua hoặc trả text placeholder
+            result.push({
+                from: m.from,
+                to: m.to,
+                content: '[unable to decrypt]',
+                createdAt: m.createdAt,
+                isSelf: m.from.toString() === String(userId),
+                readBy: m.readBy || []
+            });
+        }
+    }
+
     res.json({ messages: result });
 });
 
