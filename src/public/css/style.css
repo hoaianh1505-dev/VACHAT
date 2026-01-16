@@ -4,55 +4,49 @@ html {
     margin: 0;
     padding: 0;
     font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
-    background: #e5e9ef;
+    background: #0d0d0f;
+    /* nền đen sâu */
+    color: #f3f3f3;
     height: 100%;
 }
 
 a {
     text-decoration: none;
-    color: #229ED9;
+    color: #4f8cff;
 }
 
-.container {
+.container,
+.auth-container {
     max-width: 400px;
     margin: 80px auto;
-    background: #fff;
+    background: #18181b;
+    /* xám đậm */
     border-radius: 12px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-    padding: 32px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    padding: 32px 28px;
     text-align: center;
 }
 
 .btn {
     display: inline-block;
-    background: #3182ce;
+    background: #4f8cff;
     color: #fff;
     padding: 12px 32px;
     border-radius: 6px;
     font-weight: 500;
     margin-top: 24px;
     transition: background 0.2s;
+    border: none;
 }
 
 .btn:hover {
     background: #2563eb;
 }
 
-/* Auth Form (login/register/index) */
-.auth-container {
-    max-width: 400px;
-    margin: 80px auto;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 24px rgba(49, 130, 206, 0.10);
-    padding: 32px 28px;
-    text-align: center;
-}
-
 .auth-container h2,
 .auth-container h1 {
     margin-bottom: 24px;
-    color: #229ED9;
+    color: #4f8cff;
     font-weight: 700;
     font-size: 2rem;
 }
@@ -69,19 +63,20 @@ a {
 .auth-container input[type="password"] {
     padding: 12px 16px;
     border-radius: 6px;
-    border: 1px solid #cbd5e0;
+    border: 1px solid #374151;
     font-size: 1rem;
-    background: #f7fafc;
+    background: #18181b;
+    color: #e5e7eb;
     transition: border 0.2s;
 }
 
 .auth-container input:focus {
-    border-color: #229ED9;
+    border-color: #2563eb;
     outline: none;
 }
 
 .auth-container button {
-    background: #229ED9;
+    background: #2563eb;
     color: #fff;
     border: none;
     padding: 12px 0;
@@ -93,11 +88,11 @@ a {
 }
 
 .auth-container button:hover {
-    background: #1787b9;
+    background: #1e40af;
 }
 
 .auth-container a {
-    color: #229ED9;
+    color: #60a5fa;
     font-weight: 500;
     margin-top: 8px;
     display: inline-block;
@@ -105,11 +100,11 @@ a {
 }
 
 .auth-container a:hover {
-    color: #1787b9;
+    color: #2563eb;
 }
 
 .auth-container .error {
-    color: #e53e3e;
+    color: #ef4444;
     margin-bottom: 10px;
     font-size: 0.98rem;
 }
@@ -119,7 +114,7 @@ a {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: #e5e9ef;
+    background: #0d0d0f;
 }
 
 .chat-header {
@@ -127,10 +122,11 @@ a {
     justify-content: space-between;
     align-items: center;
     padding: 14px 28px;
-    background: #229ED9;
-    color: #fff;
+    background: #15171c;
+    /* header đậm hơn */
+    color: #f3f3f3;
     height: 56px;
-    box-shadow: 0 2px 8px rgba(34, 158, 217, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .user-info {
@@ -144,23 +140,23 @@ a {
     height: 38px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #fff;
-    background: #e2e8f0;
+    border: 2px solid #23232a;
+    background: #18181b;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1rem;
     font-weight: 700;
-    color: #229ED9;
+    color: #4f8cff;
 }
 
 .avatar-text {
-    background: #e2e8f0;
-    color: #229ED9;
+    background: #18181b;
+    color: #4f8cff;
     font-size: 1.2rem;
     font-weight: 700;
     text-transform: uppercase;
-    border: 2px solid #fff;
+    border: 2px solid #23232a;
 }
 
 .username {
@@ -170,7 +166,7 @@ a {
 }
 
 .logout-form button {
-    background: #e53e3e;
+    background: #ef4444;
     color: #fff;
     border: none;
     padding: 8px 18px;
@@ -181,7 +177,30 @@ a {
 }
 
 .logout-form button:hover {
-    background: #c53030;
+    background: #991b1b;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.35rem;
+    cursor: pointer;
+    color: #4f8cff;
+    /* màu xanh lam đồng nhất */
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.icon-btn:hover {
+    background: #23232a;
+    color: #2563eb;
 }
 
 /* Layout fix: sidebar + main */
@@ -189,19 +208,20 @@ a {
     display: flex;
     flex: 1;
     min-height: 0;
-    background: #e5e9ef;
+    background: #0d0d0f;
 }
 
 /* Sidebar */
 .chat-sidebar {
     width: 300px;
-    background: #fff;
+    background: #18181b;
+    /* sidebar nhạt hơn header */
     padding: 24px 0 24px 0;
-    border-right: 1px solid #e2e8f0;
+    border-right: 1px solid #23232a;
     flex-shrink: 0;
     height: 100%;
     overflow-y: auto;
-    box-shadow: 2px 0 8px rgba(34, 158, 217, 0.03);
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
 }
@@ -219,14 +239,15 @@ a {
     min-width: 0;
     padding: 8px 12px;
     border-radius: 6px;
-    border: 1px solid #cbd5e0;
-    background: #f7fafc;
+    border: 1px solid #23232a;
+    background: #0d0d0f;
+    color: #f3f3f3;
     font-size: 1rem;
 }
 
 #search-btn {
     flex: 0 0 auto;
-    background: #229ED9;
+    background: #4f8cff;
     color: #fff;
     border: none;
     border-radius: 6px;
@@ -238,7 +259,7 @@ a {
 }
 
 #search-btn:hover {
-    background: #1787b9;
+    background: #2563eb;
 }
 
 .friend-list,
@@ -251,7 +272,7 @@ a {
 .group-list h3 {
     font-size: 1rem;
     margin-bottom: 10px;
-    color: #229ED9;
+    color: #4f8cff;
     font-weight: 600;
 }
 
@@ -267,10 +288,10 @@ a {
     padding: 10px 14px;
     border-radius: 8px;
     margin-bottom: 6px;
-    background: #f7fafc;
+    background: #0d0d0f;
     transition: background 0.2s, color 0.2s, box-shadow 0.2s;
     font-size: 1rem;
-    color: #2d3748;
+    color: #f3f3f3;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -279,10 +300,10 @@ a {
 
 .chat-item:hover,
 .chat-item.active {
-    background: #e5f4fb;
-    color: #229ED9;
-    border: 1px solid #229ED9;
-    box-shadow: 0 2px 8px rgba(34, 158, 217, 0.08);
+    background: #23232a;
+    color: #4f8cff;
+    border: 1px solid #4f8cff;
+    box-shadow: 0 2px 8px rgba(79, 140, 255, 0.08);
 }
 
 /* Main Chat */
@@ -293,7 +314,7 @@ a {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    background: #e5e9ef;
+    background: #0d0d0f;
 }
 
 #chat-box {
@@ -302,14 +323,32 @@ a {
     max-height: 60vh;
     overflow-y: auto;
     margin-bottom: 12px;
-    /* giảm khoảng cách với form */
-    background: #fff;
+    background: #18181b;
     padding: 18px;
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(34, 158, 217, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     font-size: 1rem;
     display: flex;
     flex-direction: column;
+}
+
+.message {
+    margin-bottom: 12px;
+    padding: 10px 18px;
+    border-radius: 18px;
+    background: #4f8cff;
+    color: #fff;
+    max-width: 70%;
+    word-break: break-word;
+    align-self: flex-start;
+    font-size: 1rem;
+    box-shadow: 0 2px 8px rgba(79, 140, 255, 0.08);
+}
+
+.message.self {
+    background: #2563eb;
+    margin-left: auto;
+    align-self: flex-end;
 }
 
 #chat-form {
@@ -320,7 +359,7 @@ a {
     margin-bottom: 0;
     position: sticky;
     bottom: 0;
-    background: #e5e9ef;
+    background: #0d0d0f;
     padding-bottom: 8px;
     z-index: 2;
 }
@@ -330,21 +369,22 @@ a {
     min-width: 0;
     padding: 12px 18px;
     border-radius: 18px;
-    border: 1px solid #229ED9;
+    border: 1px solid #23232a;
     font-size: 1rem;
-    background: #fff;
+    background: #18181b;
+    color: #f3f3f3;
     outline: none;
     transition: border 0.2s;
     box-sizing: border-box;
 }
 
 #message:focus {
-    border-color: #1787b9;
+    border-color: #4f8cff;
 }
 
 #chat-form button {
     flex: 0 0 auto;
-    background: #229ED9;
+    background: #4f8cff;
     color: #fff;
     border: none;
     border-radius: 18px;
@@ -358,7 +398,23 @@ a {
 }
 
 #chat-form button:hover {
-    background: #1787b9;
+    background: #2563eb;
+}
+
+.chat-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 200px;
+    color: #a1a1aa;
+    background: linear-gradient(135deg, #18181b 60%, #0d0d0f 100%);
+    border-radius: 12px;
+    font-size: 1.15rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
+    border: 2px dashed #23232a;
 }
 
 /* Responsive */

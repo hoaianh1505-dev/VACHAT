@@ -22,9 +22,17 @@
                                 <%= user && user.username ? user.username : "User" %>
                             </span>
             </div>
-            <form method="POST" action="/auth/logout" class="logout-form">
-                <button type="submit">Đăng xuất</button>
-            </form>
+            <div class="header-actions">
+                <button class="icon-btn" title="Thông báo">
+                    🔔
+                </button>
+                <button class="icon-btn" title="Cài đặt">
+                    ⚙️
+                </button>
+                <form method="POST" action="/auth/logout" class="logout-form" style="display:inline;">
+                    <button type="submit">Đăng xuất</button>
+                </form>
+            </div>
         </header>
         <!-- Body: Sidebar + Main -->
         <div class="chat-body">
@@ -59,7 +67,12 @@
             </aside>
             <!-- Main -->
             <main class="chat-main">
-                <div id="chat-box"></div>
+                <div id="chat-box">
+                    <!-- Nếu chưa chọn cuộc trò chuyện thì hiển thị thông báo -->
+                    <div id="chat-placeholder" class="chat-placeholder">
+                        <span>Chọn một cuộc trò chuyện để bắt đầu nhắn tin</span>
+                    </div>
+                </div>
                 <form id="chat-form">
                     <input type="text" id="message" autocomplete="off" placeholder="Nhập tin nhắn..." />
                     <button type="submit">Gửi</button>

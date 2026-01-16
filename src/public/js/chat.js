@@ -12,6 +12,9 @@ document.querySelectorAll('.chat-item').forEach(item => {
             id: item.dataset.id
         };
         chatBox.innerHTML = ''; // Xóa tin nhắn cũ
+        // Ẩn placeholder khi chọn chat
+        const placeholder = document.getElementById('chat-placeholder');
+        if (placeholder) placeholder.style.display = 'none';
         // TODO: Gọi API lấy lịch sử chat cho cuộc trò chuyện này
         // socket.emit('load messages', currentChat);
     });
