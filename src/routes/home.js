@@ -62,9 +62,12 @@ router.post('/add-friend', async (req, res) => {
     const fromId = req.session.user._id;
     const { toId } = req.body;
     if (!toId || fromId === toId) return res.json({ error: 'Invalid request' });
+
     // Kiểm tra đã gửi chưa
     const exist = await Friend.findOne({ from: fromId, to: toId, status: 'pending' });
     if (exist) return res.json({ error: 'Đã gửi lời mời' });
+
+    // Lưu lời mời kết bạn vào DB
     await Friend.create({ from: fromId, to: toId, status: 'pending' });
 
     // Gửi realtime qua socket cho bên nhận (mapping userId <-> socketId)
