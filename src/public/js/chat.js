@@ -453,6 +453,37 @@ socket.on('friend-request', (data) => {
     fetchFriendRequestCount();
 });
 
+// <-- NEW: nhận thông báo friend accepted (được chấp nhận bởi người nhận)
+socket.on('friend-accepted', (data) => {
+    // Nếu sự kiện này dành cho user hiện tại (sender)
+    if (String(data.toId) !== String(window.userId)) return;
+    // Hiển thị popup ngắn rồi reload để cập nhật danh sách bạn bè
+    const popup = document.createElement('div');
+    popup.className = 'friend-request-popup';
+    popup.innerHTML = `
+        <div class="friend-request-modal">
+            <div class="friend-request-title">Lời mời của bạn đã được chấp nhận!</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                <img src="${data.fromUser.avatar || '/public/avatar.png'}" class="avatar" style="width:38px;height:38px;">
+                <div style="font-weight:700;color:#4f8cff;">${data.fromUser.username}</div>
+            </div>
+            <div class="friend-request-actions">
+                <button class="btn" id="close-accepted-btn">Đóng</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(popup);
+    popup.querySelector('#close-accepted-btn').onclick = () => {
+        popup.remove();
+        location.reload(); // đơn giản reload để đồng bộ UI
+    };
+    // tự đóng sau 2s và reload
+    setTimeout(() => {
+        if (popup.parentNode) popup.remove();
+        location.reload();
+    }, 2000);
+});
+
 // Thêm sự kiện cho nút chuông để xem các lời mời kết bạn đang chờ
 document.querySelector('.icon-btn[title="Thông báo"]').onclick = async () => {
     // Gọi API lấy danh sách lời mời kết bạn đang chờ

@@ -155,6 +155,24 @@ router.post('/accept-friend-request', async (req, res) => {
     const User = require('../models/User');
     await User.findByIdAndUpdate(request.from, { $addToSet: { friends: request.to } });
     await User.findByIdAndUpdate(request.to, { $addToSet: { friends: request.from } });
+
+    // <-- NEW: emit realtime thông báo cho người gửi lời mời rằng họ đã được chấp nhận
+    try {
+        const io = req.app.get('io');
+        if (io && io.userSocketMap) {
+            const accepter = await User.findById(request.to).select('_id username avatar');
+            const senderId = String(request.from);
+            if (io.userSocketMap[senderId]) {
+                io.to(io.userSocketMap[senderId]).emit('friend-accepted', {
+                    toId: senderId,
+                    fromUser: { _id: String(accepter._id), username: accepter.username, avatar: accepter.avatar }
+                });
+            }
+        }
+    } catch (e) {
+        console.warn('Emit friend-accepted failed', e);
+    }
+
     res.json({ success: true });
 });
 
