@@ -5,7 +5,15 @@ module.exports = (io) => {
         });
 
         socket.on('chat message', (msg) => {
-            io.emit('chat message', msg);
+            // Gửi cho người gửi (isSelf: true)
+            if (io.userSocketMap[msg.chat.id]) {
+                io.to(socket.id).emit('chat message', { ...msg, isSelf: true });
+            }
+            // Gửi cho người nhận (isSelf: false)
+            if (msg.chat.type === 'friend' && io.userSocketMap[msg.chat.id]) {
+                io.to(io.userSocketMap[msg.chat.id]).emit('chat message', { ...msg, isSelf: false });
+            }
+            // Nếu là group thì cần xử lý riêng cho từng thành viên (chưa làm)
         });
 
         socket.on('disconnect', () => {

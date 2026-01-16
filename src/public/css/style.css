@@ -326,16 +326,17 @@ a {
     overflow-y: auto;
     margin-bottom: 12px;
     background: #18181b;
-    padding: 18px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: 18px 24px;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(79, 140, 255, 0.10);
     font-size: 1rem;
     display: flex;
     flex-direction: column;
+    gap: 8px;
 }
 
 .message {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     padding: 10px 18px;
     border-radius: 18px;
     background: #4f8cff;
@@ -345,6 +346,7 @@ a {
     align-self: flex-start;
     font-size: 1rem;
     box-shadow: 0 2px 8px rgba(79, 140, 255, 0.08);
+    transition: background 0.2s;
 }
 
 .message.self {
@@ -364,6 +366,7 @@ a {
     background: #0d0d0f;
     padding-bottom: 8px;
     z-index: 2;
+    border-radius: 16px;
 }
 
 #message {
@@ -641,16 +644,21 @@ a {
 .friend-profile {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 0;
+    gap: 12px;
+    padding: 8px 12px;
     border-bottom: 1px solid #23232a;
     position: relative;
+    background: #18181b;
+    border-radius: 8px;
+    margin-bottom: 8px;
 }
 
 .friend-avatar {
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
 }
 
 .friend-username {
@@ -658,26 +666,45 @@ a {
     color: #4f8cff;
     font-size: 1rem;
     flex: 1;
+    margin-left: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .remove-friend-btn {
-    background: #ef4444;
-    color: #fff;
+    background: #23232a;
+    color: #ef4444;
     border: none;
-    border-radius: 50%;
-    width: 28px;
+    border-radius: 6px;
+    width: 60px;
     height: 28px;
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     cursor: pointer;
     margin-left: 8px;
-    transition: background 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+    box-shadow: 0 0 4px #ef444422;
+    outline: none;
+    border: 1px solid #ef4444;
+    font-weight: 500;
+    gap: 4px;
 }
 
 .remove-friend-btn:hover {
-    background: #991b1b;
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 0 8px #ef4444cc;
+    border: 1px solid #ef4444;
+}
+
+.remove-friend-icon {
+    font-size: 1.1rem;
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
 }
 
 /* Responsive */

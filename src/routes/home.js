@@ -2,6 +2,27 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Friend = require('../models/FriendRequest'); // Model lời mời kết bạn
+const crypto = require('crypto');
+const Message = require('../models/Message');
+
+// Hàm mã hóa tin nhắn AES
+function encryptMessage(text) {
+    const key = process.env.CHAT_SECRET || 'chat_secret_key_123456';
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key, 'utf8').slice(0, 32), iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return iv.toString('hex') + ':' + encrypted;
+}
+function decryptMessage(data) {
+    const key = process.env.CHAT_SECRET || 'chat_secret_key_123456';
+    const [ivHex, encrypted] = data.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key, 'utf8').slice(0, 32), iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
 
 router.get('/', (req, res) => {
     res.render('index');
@@ -151,6 +172,46 @@ router.post('/remove-friend', async (req, res) => {
     await User.findByIdAndUpdate(userId, { $pull: { friends: friendId } });
     await User.findByIdAndUpdate(friendId, { $pull: { friends: userId } });
     res.json({ success: true });
+});
+
+// API gửi tin nhắn
+router.post('/send-message', async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    const { chatType, chatId, message } = req.body;
+    if (!userId || !chatType || !chatId || !message) return res.json({ error: 'Thiếu thông tin' });
+    const encrypted = encryptMessage(message);
+    const msg = await Message.create({
+        chatType,
+        chatId,
+        from: userId,
+        to: chatType === 'friend' ? chatId : undefined,
+        content: encrypted
+    });
+    res.json({ success: true, message: msg });
+});
+
+// API lấy lịch sử tin nhắn
+router.get('/messages', async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    const { chatType, chatId } = req.query;
+    if (!userId || !chatType || !chatId) return res.json({ messages: [] });
+    let query = { chatType, chatId };
+    if (chatType === 'friend') {
+        query.$or = [
+            { from: userId, to: chatId },
+            { from: chatId, to: userId }
+        ];
+    }
+    const messages = await Message.find(query).sort({ createdAt: 1 });
+    // Giải mã nội dung
+    const result = messages.map(m => ({
+        from: m.from,
+        to: m.to,
+        content: decryptMessage(m.content),
+        createdAt: m.createdAt,
+        isSelf: m.from.toString() === userId
+    }));
+    res.json({ messages: result });
 });
 
 module.exports = router;

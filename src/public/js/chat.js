@@ -23,7 +23,7 @@ function showSystemMessage(msg) {
 
 // Chọn cuộc trò chuyện
 document.querySelectorAll('.chat-item').forEach(item => {
-    item.addEventListener('click', () => {
+    item.addEventListener('click', async () => {
         currentChat = {
             type: item.dataset.type,
             id: item.dataset.id
@@ -32,19 +32,38 @@ document.querySelectorAll('.chat-item').forEach(item => {
         // Ẩn placeholder khi chọn chat
         const placeholder = document.getElementById('chat-placeholder');
         if (placeholder) placeholder.style.display = 'none';
-        // TODO: Gọi API lấy lịch sử chat cho cuộc trò chuyện này
-        setTimeout(() => {
-            chatBox.innerHTML = '';
+        // Gọi API lấy lịch sử chat cho cuộc trò chuyện này
+        const res = await fetch(`/messages?chatType=${currentChat.type}&chatId=${currentChat.id}`);
+        const data = await res.json();
+        chatBox.innerHTML = '';
+        if (!data.messages || !data.messages.length) {
             showSystemMessage('Bạn đã bắt đầu cuộc trò chuyện.');
-        }, 600); // giả lập loading
-        // socket.emit('load messages', currentChat);
+        } else {
+            data.messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'message' + (msg.isSelf ? ' self' : '');
+                div.textContent = msg.content;
+                chatBox.appendChild(div);
+            });
+        }
     });
 });
 
 // Gửi tin nhắn
-form.addEventListener('submit', (e) => {
+form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (input.value && currentChat) {
+        // Gửi lên server lưu DB
+        await fetch('/send-message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chatType: currentChat.type,
+                chatId: currentChat.id,
+                message: input.value
+            })
+        });
+        // Emit realtime
         socket.emit('chat message', {
             chat: currentChat,
             message: input.value
@@ -53,13 +72,18 @@ form.addEventListener('submit', (e) => {
     }
 });
 
-// Nhận tin nhắn
+// Nhận tin nhắn realtime
 socket.on('chat message', (data) => {
+    // Nếu đang ở đúng cuộc trò chuyện thì hiển thị
     if (!currentChat || data.chat.id !== currentChat.id) return;
     const div = document.createElement('div');
+    // Nếu là người gửi thì isSelf, nếu là người nhận thì không
+    // Nếu data.isSelf === true thì là tin nhắn của mình, còn lại là của đối phương
     div.className = 'message' + (data.isSelf ? ' self' : '');
     div.textContent = data.message;
     chatBox.appendChild(div);
+    // Cuộn xuống cuối khi có tin nhắn mới
+    chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 const emojiList = ['😀', '😂', '😍', '👍', '🙏', '🔥', '🎉', '🥳', '😎', '😢'];
