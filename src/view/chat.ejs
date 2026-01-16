@@ -2,12 +2,73 @@
 <html>
 
 <head>
-    <title>Phòng chat - VAChat</title>
+    <title>Chat - AVChat</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 
 <body>
-    <h2>Phòng chat</h2>
-    <!-- Giao diện chat sẽ hiển thị ở đây -->
+    <div class="chat-container">
+        <!-- Header -->
+        <header class="chat-header">
+            <div class="user-info">
+                <% if (user && user.avatar && user.avatar !=='/public/avatar.png' ) { %>
+                    <img src="<%= user.avatar %>" alt="Avatar" class="avatar" />
+                    <% } else { %>
+                        <div class="avatar avatar-text">
+                            <%= user && user.username ? user.username.substring(0,2).toUpperCase() : "US" %>
+                        </div>
+                        <% } %>
+                            <span class="username">
+                                <%= user && user.username ? user.username : "User" %>
+                            </span>
+            </div>
+            <form method="POST" action="/auth/logout" class="logout-form">
+                <button type="submit">Đăng xuất</button>
+            </form>
+        </header>
+        <!-- Body: Sidebar + Main -->
+        <div class="chat-body">
+            <!-- Sidebar -->
+            <aside class="chat-sidebar">
+                <div class="search-box">
+                    <input type="text" id="search-user" placeholder="Tìm bạn qua username..." autocomplete="off" />
+                    <button id="search-btn">Tìm</button>
+                </div>
+                <div class="friend-list">
+                    <h3>Bạn bè</h3>
+                    <ul id="friends">
+                        <!-- Render danh sách bạn bè -->
+                        <% (friends || []).forEach(friend=> { %>
+                            <li class="chat-item" data-type="friend" data-id="<%= friend._id %>">
+                                <%= friend.username %>
+                            </li>
+                            <% }) %>
+                    </ul>
+                </div>
+                <div class="group-list">
+                    <h3>Nhóm chat</h3>
+                    <ul id="groups">
+                        <!-- Render danh sách nhóm -->
+                        <% (groups || []).forEach(group=> { %>
+                            <li class="chat-item" data-type="group" data-id="<%= group._id %>">
+                                <%= group.name %>
+                            </li>
+                            <% }) %>
+                    </ul>
+                </div>
+            </aside>
+            <!-- Main -->
+            <main class="chat-main">
+                <div id="chat-box"></div>
+                <form id="chat-form">
+                    <input type="text" id="message" autocomplete="off" placeholder="Nhập tin nhắn..." />
+                    <button type="submit">Gửi</button>
+                </form>
+            </main>
+        </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/chat.js"></script>
 </body>
 
 </html>

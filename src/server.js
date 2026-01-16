@@ -1,62 +1,58 @@
 require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
 const http = require('http');
+const mongoose = require('mongoose');
 const socketio = require('socket.io');
 const path = require('path');
-const cors = require('cors');
-const morgan = require('morgan');
 const session = require('express-session');
+
+// Đăng ký schema Group trước khi sử dụng populate
+require('./models/Group');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketio(server);
 
 // Middleware
-app.use(cors());
-app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
-    secret: 'vachat_secret_key',
+    secret: 'your_secret_key',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false } // secure: true nếu dùng HTTPS
+    cookie: { secure: false }
 }));
 
-// Static & View
-app.use(express.static(path.join(__dirname, 'public')));
+// View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'view'));
 
 // MongoDB connect
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('MongoDB connected'))
-    .catch(err => console.error('MongoDB connection error:', err));
+    .catch(err => console.error('MongoDB error:', err));
 
-// Routers
-app.use('/login', require('./routes/login'));
-app.use('/auth', require('./routes/auth'));
-app.use('/home', require('./routes/home'));
-app.use('/users', require('./routes/users'));
-app.use('/messages', require('./routes/messages'));
-app.use('/groups', require('./routes/groups'));
-app.use('/friends', require('./routes/friends'));
-app.use('/conversations', require('./routes/conversations'));
-app.use('/ai', require('./routes/ai'));
+// Routes
+const homeRoute = require('./routes/home');
+const loginRoute = require('./routes/login');
+const authRoute = require('./routes/auth');
+const socketHandlers = require('./socket/socketHandlers');
 
-// Basic route
-app.get('/', (req, res) => {
-    res.render('index'); // src/view/index.ejs
-});
+app.use('/', homeRoute);
+app.use('/', loginRoute);
+app.use('/auth', authRoute);
 
-// Socket.IO setup
+socketHandlers(io);
+
+// Socket.io handlers
 io.on('connection', (socket) => {
-    require('./socket/socketHandlers')(io, socket);
+    // ...socket handlers...
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
+    console.log(`App link: http://localhost:${PORT}`);
 });
