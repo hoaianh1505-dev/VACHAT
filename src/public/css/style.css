@@ -1,6 +1,6 @@
 body {
     font-family: 'Segoe UI', Arial, sans-serif;
-    background: linear-gradient(135deg, #23272f 0%, #2a3442 100%);
+    background: linear-gradient(135deg, #23272f 0%, #181a20 100%);
     margin: 0;
     padding: 0;
     color: #e3eafc;
@@ -11,7 +11,7 @@ body {
     margin: 60px auto;
     background: #23272f;
     border-radius: 18px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.30);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
     padding: 36px 28px;
     transition: box-shadow 0.2s;
 }
@@ -63,6 +63,7 @@ input[type="password"] {
 input:focus {
     border-color: #06b6d4;
     outline: none;
+    background: #23272f;
 }
 
 a {
@@ -97,6 +98,20 @@ a:hover {
     box-shadow: 0 2px 8px rgba(6, 182, 212, 0.18);
 }
 
+.header-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.header-icon:hover {
+    background: #374151;
+}
+
 .chat-box {
     border: 1px solid #374151;
     border-radius: 14px;
@@ -120,12 +135,46 @@ a:hover {
 .sidebar {
     background: #181a20 !important;
     border-right: 1px solid #374151 !important;
+    padding-top: 16px;
 }
 
-.sidebar-header,
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px 18px 14px 18px;
+    border-bottom: 1px solid #374151 !important;
+    background: #23272f !important;
+    font-size: 18px;
+}
+
 .search-box {
     background: #23272f !important;
     border-bottom: 1px solid #374151 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 0;
+}
+
+.search-input,
+.search-box input {
+    width: 90%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #374151;
+    background: #181a20;
+    color: #e3eafc;
+    font-size: 15px;
+    transition: border 0.2s, background 0.2s;
+    margin: 0 auto;
+}
+
+.search-input:focus,
+.search-box input:focus {
+    border-color: #3b82f6;
+    background: #23272f;
+    outline: none;
 }
 
 .sidebar-section-title {
@@ -152,6 +201,7 @@ a:hover {
 
 .main-chat {
     background: #23272f !important;
+    padding: 16px;
 }
 
 .main-header {
@@ -167,6 +217,48 @@ a:hover {
 .chat-input-box {
     background: #181a20 !important;
     border-top: 1px solid #374151 !important;
+}
+
+.logout-btn {
+    background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+    color: #fff !important;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 15px;
+    font-weight: 500;
+    margin-left: 18px;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.10);
+    text-decoration: none;
+    display: inline-block;
+}
+
+.logout-btn:hover {
+    background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.18);
+    color: #fff !important;
+}
+
+.vachat-logo-svg {
+    width: 140px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+img[alt="avatar"],
+.sidebar-item img {
+    transition: box-shadow 0.2s;
+    cursor: pointer;
+}
+
+img[alt="avatar"]:hover,
+.sidebar-item img:hover {
+    box-shadow: 0 4px 16px #06b6d4;
 }
 
 @media (max-width: 600px) {

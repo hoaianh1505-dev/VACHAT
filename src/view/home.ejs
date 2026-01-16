@@ -108,6 +108,20 @@
             flex: 1;
         }
 
+        .vachat-logo {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #6ee7b7, #3b82f6);
+            color: #fff;
+            font-weight: 700;
+            font-size: 18px;
+            margin-right: 10px;
+        }
+
         @media (max-width: 900px) {
             .layout {
                 flex-direction: column;
@@ -129,27 +143,82 @@
 <body>
     <div class="header">
         <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span>VAChat</span>
             <div style="display:flex;align-items:center;">
-                <% if (typeof user !=='undefined' && user.avatar) { %>
+                <% if (user && user.avatar) { %>
                     <img src="<%= user.avatar %>" alt="avatar"
-                        style="width:32px;height:32px;border-radius:50%;margin-right:10px;">
-                    <% } %>
-                        <span id="username" style="font-weight:600;">
-                            <%= typeof user !=='undefined' ? user.username : 'Khách' %>
+                        style="width:32px;height:32px;border-radius:50%;margin-right:10px;box-shadow:0 2px 8px #374151;transition:box-shadow 0.2s;cursor:pointer;"
+                        onmouseover="this.style.boxShadow='0 4px 16px #06b6d4'"
+                        onmouseout="this.style.boxShadow='0 2px 8px #374151'">
+                    <% } else if (user && user.username) { %>
+                        <span style="
+                    width:32px;height:32px;
+                    display:inline-flex;
+                    align-items:center;
+                    justify-content:center;
+                    border-radius:50%;
+                    background:#374151;
+                    color:#6ee7b7;
+                    font-weight:700;
+                    font-size:18px;
+                    margin-right:10px;
+                    box-shadow:0 2px 8px #374151;
+                    transition:box-shadow 0.2s;
+                    cursor:pointer;
+                " onmouseover="this.style.boxShadow='0 4px 16px #06b6d4'"
+                            onmouseout="this.style.boxShadow='0 2px 8px #374151'">
+                            <%= user.username.charAt(0).toUpperCase() %>
                         </span>
-                        <a href="/login" style="margin-left:18px;color:#fff;">Đăng xuất</a>
+                        <% } %>
+                            <span id="username" style="font-weight:600;margin-right:10px;">
+                                <%= user ? user.username : 'Khách' %>
+                            </span>
+                            <span
+                                style="font-size:12px;color:#6ee7b7;background:#374151;border-radius:8px;padding:2px 8px;margin-right:10px;">
+                                ● Online
+                            </span>
+            </div>
+            <div style="display:flex;align-items:center;gap:16px;">
+                <!-- Icon thông báo -->
+                <span class="header-icon" title="Thông báo">
+                    <svg width="22" height="22" fill="none" stroke="#6ee7b7" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M18 16v-5a6 6 0 0 0-12 0v5"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        <path d="M6 16h12"></path>
+                    </svg>
+                </span>
+                <!-- Icon cài đặt -->
+                <span class="header-icon" title="Cài đặt">
+                    <svg width="22" height="22" fill="none" stroke="#6ee7b7" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z">
+                        </path>
+                    </svg>
+                </span>
+                <!-- Icon trợ giúp -->
+                <span class="header-icon" title="Trợ giúp">
+                    <svg width="22" height="22" fill="none" stroke="#6ee7b7" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 1 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12" y2="17"></line>
+                    </svg>
+                </span>
+                <a href="/login" class="logout-btn" style="margin-left:24px;">Đăng xuất</a>
             </div>
         </div>
     </div>
     <div class="layout">
-        <div class="sidebar">
+        <div class="sidebar" style="padding-top:8px;">
             <div class="sidebar-header">
-                <span style="font-weight:600;color:#1976d2;">Danh mục chat</span>
+                <span style="font-weight:700;color:#6ee7b7;font-size:18px;">Trang chủ VAChat</span>
             </div>
             <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Tìm bạn bè qua username...">
+                <input type="text" id="searchInput" class="search-input" placeholder="Tìm bạn bè qua username...">
             </div>
+            <div id="searchResult" style="padding:10px 18px;"></div>
             <div class="sidebar-list">
                 <div class="sidebar-section">
                     <div class="sidebar-section-title">Bạn bè</div>
@@ -188,12 +257,13 @@
                 </div>
             </div>
         </div>
-        <div class="main-chat">
+        <div class="main-chat" style="padding:16px;">
             <div class="main-header" id="chatHeader">
                 Chọn bạn bè hoặc nhóm để bắt đầu chat
             </div>
-            <div class="chat-content" id="chatContent">
-                <!-- Nội dung chat sẽ hiển thị ở đây -->
+            <div class="chat-content" id="chatContent"
+                style="display:flex;align-items:center;justify-content:center;min-height:200px;">
+                <span style="color:#888;font-size:16px;">Hãy chọn một cuộc trò chuyện để bắt đầu!</span>
             </div>
             <form class="chat-input-box" id="chatForm" style="display:none;">
                 <input type="text" id="messageInput" class="chat-input" placeholder="Nhập tin nhắn..."
@@ -202,51 +272,10 @@
             </form>
         </div>
     </div>
-    <script src="/js/home.js"></script>
     <script>
-        // Demo: Chọn bạn bè/nhóm để hiển thị khối chat
-        const friendList = document.getElementById('friendList');
-        const groupList = document.getElementById('groupList');
-        const chatHeader = document.getElementById('chatHeader');
-        const chatContent = document.getElementById('chatContent');
-        const chatForm = document.getElementById('chatForm');
-        let currentChat = null;
-
-        function selectChat(type, name) {
-            chatHeader.textContent = type === 'friend' ? `Chat với ${name}` : `Nhóm: ${name}`;
-            chatContent.innerHTML = '';
-            chatForm.style.display = 'flex';
-        }
-
-        [...friendList.querySelectorAll('.sidebar-item'), ...groupList.querySelectorAll('.sidebar-item')].forEach(item => {
-            item.addEventListener('click', function () {
-                friendList.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
-                groupList.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
-                this.classList.add('active');
-                selectChat(this.dataset.type, this.textContent);
-            });
-        });
-
-        // Demo gửi tin nhắn
-        chatForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const msg = document.getElementById('messageInput').value.trim();
-            if (msg) {
-                const div = document.createElement('div');
-                div.textContent = 'Bạn: ' + msg;
-                chatContent.appendChild(div);
-                document.getElementById('messageInput').value = '';
-            }
-        });
-
-        // Demo tìm kiếm bạn bè
-        document.getElementById('searchInput').addEventListener('input', function () {
-            const val = this.value.toLowerCase();
-            friendList.querySelectorAll('.sidebar-item').forEach(item => {
-                item.style.display = item.textContent.toLowerCase().includes(val) ? '' : 'none';
-            });
-        });
+        window.userId = "<%= user._id %>";
     </script>
+    <script src="/js/home.js"></script>
 </body>
 
 </html>

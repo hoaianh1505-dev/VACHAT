@@ -6,6 +6,7 @@ const socketio = require('socket.io');
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
+const session = require('express-session');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,6 +17,12 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(session({
+    secret: 'vachat_secret_key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false } // secure: true nếu dùng HTTPS
+}));
 
 // Static & View
 app.use(express.static(path.join(__dirname, 'public')));

@@ -1,13 +1,10 @@
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
+const authService = require('../services/authService');
 
 exports.register = async (req, res) => {
     const { username, email, password } = req.body;
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const user = new User({ username, email, password: hashedPassword });
-        await user.save();
-        // Redirect to home after register
+        const user = await authService.register(username, email, password);
+        req.session.userId = user._id;
         res.redirect('/home');
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -17,11 +14,9 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     const { email, password } = req.body;
     try {
-        const user = await User.findOne({ email });
+        const user = await authService.login(email, password);
         if (!user) return res.render('login', { error: 'Invalid credentials' });
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.render('login', { error: 'Invalid credentials' });
-        // Redirect to home after login
+        req.session.userId = user._id;
         res.redirect('/home');
     } catch (err) {
         res.render('login', { error: 'Login error' });
