@@ -10,7 +10,12 @@ document.getElementById('app').innerHTML = `
     </div>
 `;
 
-document.getElementById('logoutBtn').onclick = function () {
-    localStorage.removeItem('token');
-    window.location.href = "login.html";
-};
+window.addEventListener('DOMContentLoaded', function () {
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.onclick = function () {
+            localStorage.removeItem('token');
+            window.location.href = "/login";
+        };
+    }
+});
