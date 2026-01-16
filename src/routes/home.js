@@ -10,6 +10,7 @@ router.get('/', (req, res) => {
 router.get('/chat', async (req, res) => {
     const sessionUser = req.session.user;
     if (!sessionUser) return res.redirect('/login');
+    // Lấy user và populate friends (chỉ những user đã là bạn)
     const user = await User.findById(sessionUser._id)
         .populate('friends', 'username avatar')
         .populate('groups', 'name');
@@ -24,22 +25,23 @@ router.get('/chat', async (req, res) => {
 router.get('/search-user', async (req, res) => {
     const { username } = req.query;
     const sessionUser = req.session.user;
-    if (!username || !sessionUser) return res.json({ error: 'Missing username' });
-    const user = await User.findOne({ username });
-    if (!user) return res.json({ error: 'Không tìm thấy user' });
-    if (user._id.equals(sessionUser._id)) return res.json({ error: 'Không thể tìm chính mình' });
+    if (!sessionUser) return res.json({ error: 'Bạn chưa đăng nhập.' });
+    if (!username || !username.trim()) return res.json({ error: 'Thiếu username.' });
+
+    const user = await User.findOne({ username: username.trim() });
+    if (!user) return res.json({ error: 'Không tìm thấy user.' });
+    if (user._id.equals(sessionUser._id)) return res.json({ error: 'Không thể tìm chính mình.' });
 
     // Kiểm tra đã là bạn chưa
     const me = await User.findById(sessionUser._id);
     if (me.friends && me.friends.some(f => f.equals(user._id))) {
-        return res.json({ error: 'Đã là bạn bè' });
+        return res.json({ error: 'Đã là bạn bè.' });
     }
 
     // Kiểm tra đã gửi lời mời chưa
     const Friend = require('../models/FriendRequest');
     const exist = await Friend.findOne({ from: sessionUser._id, to: user._id, status: 'pending' });
     if (exist) {
-        // Trả về user, client sẽ hiển thị nút thu hồi
         return res.json({
             _id: user._id,
             username: user.username,
@@ -97,6 +99,57 @@ router.post('/cancel-friend-request', async (req, res) => {
     const { toId } = req.body;
     if (!toId || fromId === toId) return res.json({ error: 'Invalid request' });
     await Friend.deleteOne({ from: fromId, to: toId, status: 'pending' });
+    res.json({ success: true });
+});
+
+// Lấy danh sách lời mời kết bạn đang chờ (bên nhận)
+router.get('/pending-friend-requests', async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    if (!userId) return res.json({ requests: [] });
+    const FriendRequest = require('../models/FriendRequest');
+    const requests = await FriendRequest.find({ to: userId, status: 'pending' })
+        .populate('from', 'username avatar');
+    res.json({ requests });
+});
+
+// Chấp nhận lời mời kết bạn
+router.post('/accept-friend-request', async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    const { requestId } = req.body;
+    if (!userId || !requestId) return res.json({ error: 'Thiếu thông tin' });
+    const FriendRequest = require('../models/FriendRequest');
+    const request = await FriendRequest.findById(requestId);
+    if (!request || request.to.toString() !== userId) return res.json({ error: 'Không hợp lệ' });
+    request.status = 'accepted';
+    await request.save();
+    // Thêm bạn vào danh sách friends của cả hai
+    const User = require('../models/User');
+    await User.findByIdAndUpdate(request.from, { $addToSet: { friends: request.to } });
+    await User.findByIdAndUpdate(request.to, { $addToSet: { friends: request.from } });
+    res.json({ success: true });
+});
+
+// Từ chối lời mời kết bạn
+router.post('/reject-friend-request', async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    const { requestId } = req.body;
+    if (!userId || !requestId) return res.json({ error: 'Thiếu thông tin' });
+    const FriendRequest = require('../models/FriendRequest');
+    const request = await FriendRequest.findById(requestId);
+    if (!request || request.to.toString() !== userId) return res.json({ error: 'Không hợp lệ' });
+    request.status = 'rejected';
+    await request.save();
+    res.json({ success: true });
+});
+
+// Xóa bạn
+router.post('/remove-friend', async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    const { friendId } = req.body;
+    if (!userId || !friendId) return res.json({ error: 'Thiếu thông tin' });
+    const User = require('../models/User');
+    await User.findByIdAndUpdate(userId, { $pull: { friends: friendId } });
+    await User.findByIdAndUpdate(friendId, { $pull: { friends: userId } });
     res.json({ success: true });
 });
 
