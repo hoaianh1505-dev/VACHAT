@@ -4,21 +4,29 @@ const User = require('../models/User');
 const Friend = require('../models/FriendRequest'); // Model lời mời kết bạn
 const crypto = require('crypto');
 const Message = require('../models/Message');
+const mongoose = require('mongoose');
+
+// Hàm lấy key chuẩn 32 bytes
+function getAesKey() {
+    const rawKey = process.env.CHAT_SECRET || 'chat_secret_key_123456';
+    // Hash key bằng SHA256 để luôn đủ 32 bytes
+    return crypto.createHash('sha256').update(rawKey).digest();
+}
 
 // Hàm mã hóa tin nhắn AES
 function encryptMessage(text) {
-    const key = process.env.CHAT_SECRET || 'chat_secret_key_123456';
+    const key = getAesKey();
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key, 'utf8').slice(0, 32), iv);
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     return iv.toString('hex') + ':' + encrypted;
 }
 function decryptMessage(data) {
-    const key = process.env.CHAT_SECRET || 'chat_secret_key_123456';
+    const key = getAesKey();
     const [ivHex, encrypted] = data.split(':');
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key, 'utf8').slice(0, 32), iv);
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
@@ -179,15 +187,28 @@ router.post('/send-message', async (req, res) => {
     const userId = req.session.user && req.session.user._id;
     const { chatType, chatId, message } = req.body;
     if (!userId || !chatType || !chatId || !message) return res.json({ error: 'Thiếu thông tin' });
-    const encrypted = encryptMessage(message);
-    const msg = await Message.create({
-        chatType,
-        chatId,
-        from: userId,
-        to: chatType === 'friend' ? chatId : undefined,
-        content: encrypted
-    });
-    res.json({ success: true, message: msg });
+
+    // Kiểm tra ObjectId hợp lệ
+    if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(chatId)) {
+        return res.json({ error: 'ID không hợp lệ' });
+    }
+
+    try {
+        const encrypted = encryptMessage(message);
+        // Sửa lại: dùng new mongoose.Types.ObjectId
+        const toId = chatType === 'friend' ? new mongoose.Types.ObjectId(chatId) : undefined;
+        const msg = await Message.create({
+            chatType,
+            chatId: new mongoose.Types.ObjectId(chatId),
+            from: new mongoose.Types.ObjectId(userId),
+            to: toId,
+            content: encrypted
+        });
+        res.json({ success: true, message: msg });
+    } catch (err) {
+        console.error('Lỗi lưu tin nhắn:', err);
+        res.json({ error: 'Không lưu được tin nhắn' });
+    }
 });
 
 // API lấy lịch sử tin nhắn

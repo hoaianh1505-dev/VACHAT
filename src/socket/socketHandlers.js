@@ -2,18 +2,38 @@ module.exports = (io) => {
     io.on('connection', (socket) => {
         socket.on('register-user', (userId) => {
             io.userSocketMap[userId] = socket.id;
+            socket.userId = userId; // Lưu userId vào socket để xác định người gửi
         });
 
         socket.on('chat message', (msg) => {
-            // Gửi cho người gửi (isSelf: true)
-            if (io.userSocketMap[msg.chat.id]) {
-                io.to(socket.id).emit('chat message', { ...msg, isSelf: true });
+            // Chỉ xử lý chat giữa bạn bè (type: 'friend')
+            if (msg.chat.type === 'friend') {
+                const fromId = socket.userId;
+                const toId = msg.chat.id;
+                // Gửi cho người gửi (isSelf: true)
+                if (fromId && io.userSocketMap[fromId]) {
+                    io.to(io.userSocketMap[fromId]).emit('chat message', {
+                        chat: msg.chat,
+                        message: msg.message,
+                        from: fromId,
+                        to: toId,
+                        createdAt: msg.createdAt || new Date(),
+                        isSelf: true
+                    });
+                }
+                // Gửi cho người nhận (isSelf: false)
+                if (toId && io.userSocketMap[toId]) {
+                    io.to(io.userSocketMap[toId]).emit('chat message', {
+                        chat: msg.chat,
+                        message: msg.message,
+                        from: fromId,
+                        to: toId,
+                        createdAt: msg.createdAt || new Date(),
+                        isSelf: false
+                    });
+                }
             }
-            // Gửi cho người nhận (isSelf: false)
-            if (msg.chat.type === 'friend' && io.userSocketMap[msg.chat.id]) {
-                io.to(io.userSocketMap[msg.chat.id]).emit('chat message', { ...msg, isSelf: false });
-            }
-            // Nếu là group thì cần xử lý riêng cho từng thành viên (chưa làm)
+            // ...handlers cho group...
         });
 
         socket.on('disconnect', () => {
@@ -22,6 +42,6 @@ module.exports = (io) => {
             }
         });
 
-        // ...handlers cho group...
+        // ...existing code...
     });
 };

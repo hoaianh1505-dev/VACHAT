@@ -3,6 +3,7 @@ const form = document.getElementById('chat-form');
 const input = document.getElementById('message');
 const chatBox = document.getElementById('chat-box');
 let currentChat = null; // {type, id}
+let pendingMessages = {}; // {friendId: count}
 
 // Hiển thị loading
 function showLoading() {
@@ -22,11 +23,12 @@ function showSystemMessage(msg) {
 }
 
 // Chọn cuộc trò chuyện
-document.querySelectorAll('.chat-item').forEach(item => {
+document.querySelectorAll('.chat-item.friend-profile').forEach(item => {
     item.addEventListener('click', async () => {
+        // Đảm bảo mapping đúng id bạn bè
         currentChat = {
-            type: item.dataset.type,
-            id: item.dataset.id
+            type: 'friend',
+            id: item.dataset.id // _id của bạn bè
         };
         showLoading();
         // Ẩn placeholder khi chọn chat
@@ -46,15 +48,20 @@ document.querySelectorAll('.chat-item').forEach(item => {
                 chatBox.appendChild(div);
             });
         }
+        // Reset badge khi mở chat
+        const badge = item.querySelector('.unread-badge');
+        if (badge) badge.style.display = 'none';
+        if (pendingMessages[item.dataset.id]) delete pendingMessages[item.dataset.id];
     });
 });
 
 // Gửi tin nhắn
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (input.value && currentChat) {
+    // Chỉ gửi khi đã chọn đúng bạn bè
+    if (input.value && currentChat && currentChat.type === 'friend' && currentChat.id) {
         // Gửi lên server lưu DB
-        await fetch('/send-message', {
+        const res = await fetch('/send-message', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -63,27 +70,79 @@ form.addEventListener('submit', async (e) => {
                 message: input.value
             })
         });
-        // Emit realtime
-        socket.emit('chat message', {
-            chat: currentChat,
-            message: input.value
-        });
-        input.value = '';
+        const result = await res.json();
+        if (result.success) {
+            // Emit realtime, gửi đủ thông tin
+            socket.emit('chat message', {
+                chat: currentChat,
+                message: input.value,
+                from: window.userId,
+                to: currentChat.id,
+                createdAt: result.message.createdAt
+            });
+            input.value = '';
+            // Reload lại lịch sử chat để đảm bảo đồng bộ với DB
+            const reload = await fetch(`/messages?chatType=${currentChat.type}&chatId=${currentChat.id}`);
+            const data = await reload.json();
+            chatBox.innerHTML = '';
+            if (!data.messages || !data.messages.length) {
+                showSystemMessage('Bạn đã bắt đầu cuộc trò chuyện.');
+            } else {
+                data.messages.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = 'message' + (msg.isSelf ? ' self' : '');
+                    div.textContent = msg.content;
+                    chatBox.appendChild(div);
+                });
+            }
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } else {
+            alert(result.error || 'Không gửi được tin nhắn!');
+        }
     }
 });
 
 // Nhận tin nhắn realtime
 socket.on('chat message', (data) => {
-    // Nếu đang ở đúng cuộc trò chuyện thì hiển thị
-    if (!currentChat || data.chat.id !== currentChat.id) return;
-    const div = document.createElement('div');
-    // Nếu là người gửi thì isSelf, nếu là người nhận thì không
-    // Nếu data.isSelf === true thì là tin nhắn của mình, còn lại là của đối phương
-    div.className = 'message' + (data.isSelf ? ' self' : '');
-    div.textContent = data.message;
-    chatBox.appendChild(div);
-    // Cuộn xuống cuối khi có tin nhắn mới
-    chatBox.scrollTop = chatBox.scrollHeight;
+    console.log('Nhận socket chat message:', data);
+    // Nếu đang chat với đúng người thì hiển thị
+    // Sửa: so sánh currentChat.id với data.from nếu là người nhận
+    if (
+        currentChat &&
+        (
+            (data.isSelf && data.chat.id === currentChat.id) || // mình gửi
+            (!data.isSelf && data.from === currentChat.id)      // mình nhận
+        )
+    ) {
+        const div = document.createElement('div');
+        div.className = 'message' + (data.isSelf ? ' self' : '');
+        div.textContent = data.message;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    } else {
+        // Nếu chưa mở cửa sổ chat với người gửi, tăng badge
+        // Sửa: badge ở bạn bè có id = data.isSelf ? data.chat.id : data.from
+        const friendId = data.isSelf ? data.chat.id : data.from;
+        pendingMessages[friendId] = (pendingMessages[friendId] || 0) + 1;
+        const friendItem = document.querySelector(`.chat-item.friend-profile[data-id="${friendId}"]`);
+        if (friendItem) {
+            let badge = friendItem.querySelector('.unread-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'unread-badge';
+                badge.style.background = '#ef4444';
+                badge.style.color = '#fff';
+                badge.style.fontSize = '0.8rem';
+                badge.style.borderRadius = '50%';
+                badge.style.padding = '2px 7px';
+                badge.style.marginLeft = '8px';
+                badge.style.fontWeight = 'bold';
+                friendItem.appendChild(badge);
+            }
+            badge.textContent = pendingMessages[friendId];
+            badge.style.display = 'inline-block';
+        }
+    }
 });
 
 const emojiList = ['😀', '😂', '😍', '👍', '🙏', '🔥', '🎉', '🥳', '😎', '😢'];
