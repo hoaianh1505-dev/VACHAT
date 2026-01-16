@@ -1,9 +1,14 @@
-exports.getProfile = async (req, res) => {
-    // ...future: load user profile...
-    res.json({ ok: true, message: 'user profile stub' });
-};
+const userService = require('../services/userService');
+const asyncHandler = require('../utils/asyncHandler');
 
-exports.list = async (req, res) => {
-    // ...future: list users...
-    res.json({ ok: true, users: [] });
-};
+exports.getProfile = asyncHandler(async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const user = await userService.getById(userId);
+    res.json({ ok: true, user });
+});
+
+exports.list = asyncHandler(async (req, res) => {
+    const users = await userService.list();
+    res.json({ ok: true, users });
+});

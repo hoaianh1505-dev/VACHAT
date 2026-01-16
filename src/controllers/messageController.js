@@ -1,9 +1,29 @@
-exports.sendMessage = async (req, res) => {
-    // ...future: validate & forward to service...
-    res.json({ success: false, error: 'Not implemented' });
-};
+const mongoose = require('mongoose');
+const Message = require('../models/Message');
+const messageService = require('../services/messageService');
+const asyncHandler = require('../utils/asyncHandler');
 
-exports.getMessages = async (req, res) => {
-    // ...future: return message history...
-    res.json({ messages: [] });
-};
+exports.sendMessage = asyncHandler(async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    const { chatType, chatId, message } = req.body;
+    if (!userId || !chatType || !chatId || !message) return res.json({ error: 'Thiếu thông tin' });
+
+    const io = req.app.get('io');
+    const msg = await messageService.createMessage({
+        chatType,
+        chatId,
+        fromId: userId,
+        toId: chatType === 'friend' ? chatId : undefined,
+        content: message,
+        io
+    });
+    res.json({ success: true, message: msg });
+});
+
+exports.getMessages = asyncHandler(async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    const { chatType, chatId } = req.query;
+    if (!userId || !chatType || !chatId) return res.json({ messages: [] });
+    const messages = await messageService.getMessages({ userId, chatType, chatId });
+    res.json({ messages });
+});

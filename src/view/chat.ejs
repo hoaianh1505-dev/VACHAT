@@ -95,13 +95,13 @@
                 </div>
                 <form id="chat-form">
                     <input type="text" id="message" autocomplete="off" placeholder="Nhập tin nhắn..." />
-                    <button type="submit">Gửi</button>
+                    <button type="submit" id="send-btn" disabled>Gửi</button>
                 </form>
             </main>
         </div>
     </div>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/chat.js"></script>
+    <script type="module" src="/js/app.mjs"></script>
     <script>
         // Xử lý nút xóa bạn
         document.addEventListener('DOMContentLoaded', function () {
