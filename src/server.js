@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const socketio = require('socket.io');
 const path = require('path');
 const session = require('express-session');
+const MongoStore = require('connect-mongo').default; // Sửa lại import .default
 
 // Đăng ký schema Group trước khi sử dụng populate
 require('./models/Group');
@@ -12,6 +13,10 @@ require('./models/Group');
 const app = express();
 const server = http.createServer(app);
 const io = socketio(server);
+
+io.userSocketMap = {}; // Khởi tạo map trước khi truyền vào socketHandlers
+
+app.set('io', io); // Thêm dòng này
 
 // Middleware
 app.use(express.json());
@@ -21,7 +26,8 @@ app.use(session({
     secret: 'your_secret_key',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }
+    cookie: { secure: false },
+    store: MongoStore.create({ mongoUrl: process.env.MONGO_URI }) // Sử dụng .create()
 }));
 
 // View engine
@@ -38,17 +44,19 @@ const homeRoute = require('./routes/home');
 const loginRoute = require('./routes/login');
 const authRoute = require('./routes/auth');
 const socketHandlers = require('./socket/socketHandlers');
-
-app.use('/', homeRoute);
-app.use('/', loginRoute);
-app.use('/auth', authRoute);
-
 socketHandlers(io);
+
+// Expose userSocketMap cho route sử dụng
+io.userSocketMap = {};
 
 // Socket.io handlers
 io.on('connection', (socket) => {
     // ...socket handlers...
 });
+
+app.use('/', homeRoute);
+app.use('/', loginRoute);
+app.use('/auth', authRoute);
 
 // Start server
 const PORT = process.env.PORT || 3000;

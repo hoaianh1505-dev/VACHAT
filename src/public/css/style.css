@@ -122,11 +122,11 @@ a {
     justify-content: space-between;
     align-items: center;
     padding: 14px 28px;
-    background: #15171c;
-    /* header đậm hơn */
+    background: linear-gradient(90deg, #10131a 60%, #232a3d 100%);
     color: #f3f3f3;
     height: 56px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 24px rgba(79, 140, 255, 0.12);
+    border-bottom: 2px solid #232a3d;
 }
 
 .user-info {
@@ -191,16 +191,17 @@ a {
     border: none;
     font-size: 1.35rem;
     cursor: pointer;
-    color: #4f8cff;
-    /* màu xanh lam đồng nhất */
+    color: #7abfff;
     padding: 4px 8px;
     border-radius: 6px;
-    transition: background 0.2s, color 0.2s;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 0 8px 0 #4f8cff33;
 }
 
 .icon-btn:hover {
     background: #23232a;
-    color: #2563eb;
+    color: #4f8cff;
+    box-shadow: 0 0 12px 2px #4f8cff88;
 }
 
 /* Layout fix: sidebar + main */
@@ -214,14 +215,14 @@ a {
 /* Sidebar */
 .chat-sidebar {
     width: 300px;
-    background: #18181b;
-    /* sidebar nhạt hơn header */
+    background: #181c24;
+    /* sidebar sáng hơn header */
     padding: 24px 0 24px 0;
     border-right: 1px solid #23232a;
     flex-shrink: 0;
     height: 100%;
     overflow-y: auto;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 4px 0 24px rgba(79, 140, 255, 0.08);
     display: flex;
     flex-direction: column;
 }
@@ -303,7 +304,7 @@ a {
     background: #23232a;
     color: #4f8cff;
     border: 1px solid #4f8cff;
-    box-shadow: 0 2px 8px rgba(79, 140, 255, 0.08);
+    box-shadow: 0 0 12px 2px #4f8cff44;
 }
 
 /* Main Chat */
@@ -415,6 +416,205 @@ a {
     letter-spacing: 0.5px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
     border: 2px dashed #23232a;
+}
+
+/* Emoji Picker */
+#emoji-btn {
+    font-size: 1.3rem;
+    background: transparent;
+    border: none;
+    color: #7abfff;
+    cursor: pointer;
+    margin-right: 4px;
+    transition: background 0.2s, color 0.2s;
+    border-radius: 8px;
+    padding: 0 8px;
+}
+
+#emoji-btn:hover {
+    background: #23232a;
+    color: #4f8cff;
+}
+
+#emoji-picker {
+    min-width: 180px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+#emoji-picker span:hover {
+    background: #4f8cff22;
+    border-radius: 6px;
+}
+
+/* Loading spinner */
+.chat-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100px;
+}
+
+.chat-spinner {
+    width: 32px;
+    height: 32px;
+    border: 4px solid #4f8cff;
+    border-top: 4px solid #23232a;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* System message */
+.system-message {
+    text-align: center;
+    color: #7abfff;
+    background: #23232a;
+    border-radius: 8px;
+    margin: 8px 0;
+    padding: 8px 16px;
+    font-size: 0.98rem;
+    font-style: italic;
+    opacity: 0.85;
+}
+
+/* Animate new message */
+@keyframes fadeInMsg {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message,
+.system-message {
+    animation: fadeInMsg 0.3s;
+}
+
+/* Profile Search */
+.profile-search {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #23232a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px #4f8cff22;
+}
+
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.profile-username {
+    font-weight: 600;
+    color: #4f8cff;
+    font-size: 1.08rem;
+}
+
+#add-friend-btn {
+    background: #4f8cff;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 18px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 2px;
+    transition: background 0.2s;
+}
+
+#add-friend-btn:disabled {
+    background: #23232a;
+    color: #7abfff;
+    cursor: not-allowed;
+}
+
+#cancel-friend-btn {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 18px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 2px;
+    transition: background 0.2s;
+}
+
+#cancel-friend-btn:disabled {
+    background: #23232a;
+    color: #7abfff;
+    cursor: not-allowed;
+}
+
+/* Friend Request Popup */
+.friend-request-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(13, 13, 15, 0.55);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.friend-request-modal {
+    background: #23232a;
+    border-radius: 14px;
+    box-shadow: 0 4px 32px #4f8cff44;
+    padding: 32px 28px 22px 28px;
+    min-width: 320px;
+    max-width: 90vw;
+    text-align: center;
+    animation: fadeInMsg 0.3s;
+}
+
+.friend-request-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #4f8cff;
+    margin-bottom: 18px;
+}
+
+.friend-request-user {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 18px;
+    font-size: 1.08rem;
+    color: #f3f3f3;
+}
+
+.friend-request-actions {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.friend-request-popup .btn {
+    min-width: 100px;
+    font-size: 1rem;
+    padding: 10px 0;
 }
 
 /* Responsive */
