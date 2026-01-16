@@ -15,3 +15,4 @@ Tech: Node.js, MongoDB, Socket.IO, OpenAI.
 - `src/services` — Business logic
 - `src/socket` — Socket handlers
 - `src/public` — Frontend static files
+- `src/view` — View templates

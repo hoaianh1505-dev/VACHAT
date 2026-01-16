@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Đăng nhập - VAChat</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h2>Đăng nhập</h2>
+        <% if (typeof error !=='undefined' ) { %>
+            <div class="error">
+                <%= error %>
+            </div>
+            <% } %>
+                <form method="POST" action="/auth/login">
+                    <input type="email" name="email" placeholder="Email" required />
+                    <input type="password" name="password" placeholder="Mật khẩu" required />
+                    <button type="submit" class="btn">Đăng nhập</button>
+                </form>
+                <p style="text-align:center; margin-top:16px;">
+                    Chưa có tài khoản? <a href="/auth/register">Đăng ký</a>
+                </p>
+    </div>
+</body>
+
+</html>
