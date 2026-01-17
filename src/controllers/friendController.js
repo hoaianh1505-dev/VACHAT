@@ -65,8 +65,10 @@ exports.acceptFriendRequest = async (req, res) => {
     try {
         const userId = req.session.user && req.session.user._id;
         const { requestId } = req.body;
-        await friendService.acceptRequest({ requestId, userId, io: req.app.get('io') });
-        res.json({ success: true });
+        const result = await friendService.acceptRequest({ requestId, userId, io: req.app.get('io') });
+        // return friend info to client for immediate UI update
+        const sender = result && result.sender ? { _id: result.sender._id, username: result.sender.username, avatar: result.sender.avatar } : null;
+        res.json({ success: true, friend: sender });
     } catch (e) { console.error(e); res.json({ error: e.message || 'Lỗi' }); }
 };
 
