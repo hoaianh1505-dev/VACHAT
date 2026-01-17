@@ -3,6 +3,11 @@ export function initMessages({ socket } = {}) {
     const input = document.getElementById('message');
     const chatBox = document.getElementById('chat-box');
     const sendBtn = document.getElementById('send-btn');
+    const emojiBtn = document.getElementById('emoji-btn');
+    const emojiPicker = document.getElementById('emoji-picker');
+
+    // small emoji set; bạn có thể mở rộng
+    const EMOJIS = ['😀', '😂', '😍', '👍', '🎉', '🔥', '🙏', '😢', '😎', '🤔', '😅', '👏', '💯', '🎁', '🥳'];
 
     function getFriendInfo(friendId) {
         const friendItem = document.querySelector(`.chat-item.friend-profile[data-id="${friendId}"]`);
@@ -226,6 +231,70 @@ export function initMessages({ socket } = {}) {
                     }
                 }
             }
+        });
+    }
+
+    function renderEmojiPicker() {
+        if (!emojiPicker) return;
+        emojiPicker.innerHTML = '';
+        EMOJIS.forEach(e => {
+            const span = document.createElement('span');
+            span.style.cursor = 'pointer';
+            span.style.padding = '6px';
+            span.style.fontSize = '1.2rem';
+            span.textContent = e;
+            span.onclick = (ev) => {
+                ev.stopPropagation();
+                // insert emoji at caret / append
+                if (input) {
+                    const start = input.selectionStart || input.value.length;
+                    const end = input.selectionEnd || input.value.length;
+                    const v = input.value;
+                    input.value = v.slice(0, start) + e + v.slice(end);
+                    const pos = start + e.length;
+                    input.setSelectionRange(pos, pos);
+                    input.focus();
+                    // enable send button if was disabled
+                    if (sendBtn) sendBtn.disabled = false;
+                }
+                // keep picker open for multiple picks
+            };
+            emojiPicker.appendChild(span);
+        });
+    }
+
+    function toggleEmojiPicker() {
+        if (!emojiPicker) return;
+        if (emojiPicker.style.display === 'none' || !emojiPicker.style.display) {
+            renderEmojiPicker();
+            emojiPicker.style.display = 'flex';
+            emojiPicker.style.flexWrap = 'wrap';
+            emojiPicker.style.gap = '6px';
+            emojiPicker.style.padding = '8px';
+            emojiPicker.style.background = '#18181b';
+            emojiPicker.style.borderRadius = '8px';
+            emojiPicker.style.position = 'absolute';
+            emojiPicker.style.bottom = '64px';
+            emojiPicker.style.right = '40px';
+            emojiPicker.style.zIndex = '9999';
+        } else {
+            emojiPicker.style.display = 'none';
+        }
+    }
+
+    // close picker when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!emojiPicker || !emojiBtn) return;
+        if (emojiPicker.style.display === 'none') return;
+        if (e.target === emojiBtn || emojiBtn.contains(e.target)) return;
+        if (emojiPicker.contains(e.target)) return;
+        emojiPicker.style.display = 'none';
+    });
+
+    if (emojiBtn) {
+        emojiBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleEmojiPicker();
         });
     }
 }
