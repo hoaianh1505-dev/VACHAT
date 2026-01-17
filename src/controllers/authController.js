@@ -14,7 +14,10 @@ exports.login = async (req, res) => {
         const user = await authService.login(req.body);
         // Lưu user vào session (hoặc gán vào req.session.user)
         req.session.user = user;
-        res.redirect('/chat');
+        req.session.save(err => {
+            if (err) console.warn('Session save error:', err);
+            return res.redirect('/chat');
+        });
     } catch (err) {
         res.render('login', { error: err.message });
     }

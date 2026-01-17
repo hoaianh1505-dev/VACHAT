@@ -1,4 +1,4 @@
 const env = require('./environment');
 module.exports = {
-    getApiKey: () => env.OPENAI_API_KEY
+    getGeminiKey: () => env.GEMINI_API_KEY
 };

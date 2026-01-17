@@ -27,12 +27,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
-    secret: 'your_secret_key',
+    secret: env.SESSION_SECRET || 'your_secret_key',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false },
-    store: MongoStore.create({ mongoUrl: env.MONGO_URI }) // <-- dùng env.MONGO_URI
+    store: MongoStore.create({ mongoUrl: env.MONGO_URI }),
+    cookie: {
+        secure: (process.env.NODE_ENV === 'production'), // https only in prod
+        sameSite: 'lax' // allow sending cookie on same-site navigations/fetches
+    }
 }));
+
+// trust proxy in production (if behind a proxy/load balancer)
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
 
 // Thêm logger và CORS middleware (sau body parser, trước routes)
 app.use(middleware.requestLogger);
@@ -44,7 +52,13 @@ app.set('views', path.join(__dirname, 'view'));
 
 // MongoDB connect (dùng module)
 db.connect()
-    .then(() => console.log('MongoDB connected'))
+    .then(() => {
+        console.log('MongoDB connected');
+        // show whether GEMINI key is configured (do not print the key)
+        const env = require('./config/environment');
+        if (env.GEMINI_API_KEY) console.log('Gemini API key: configured');
+        else console.log('Gemini API key: NOT configured — AI will fallback to local generator.');
+    })
     .catch(err => console.error('MongoDB error:', err));
 
 // Routes
@@ -76,7 +90,7 @@ app.use('/api/ai', aiApiRoute);
 app.use(middleware.errorHandler);
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = env.PORT || process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`App link: http://localhost:${PORT}`);

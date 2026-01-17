@@ -50,6 +50,26 @@ export function initMessages({ socket } = {}) {
         }
         chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
+
+        // NEW: update in-memory lastMessages for current chat so AI uses latest incoming message
+        window.AVChat = window.AVChat || {};
+        window.AVChat.lastMessages = window.AVChat.lastMessages || [];
+        try {
+            const msgObj = {
+                content: data.message,
+                isSelf: !!data.isSelf,
+                from: data.from != null ? String(data.from) : (data.isSelf ? String(window.userId) : null),
+                createdAt: data.createdAt || new Date()
+            };
+            // push and trim to keep only recent messages
+            window.AVChat.lastMessages.push(msgObj);
+            const MAX_STORE = 200;
+            if (window.AVChat.lastMessages.length > MAX_STORE) {
+                window.AVChat.lastMessages = window.AVChat.lastMessages.slice(-MAX_STORE);
+            }
+        } catch (e) {
+            // noop
+        }
     }
 
     // render messages
@@ -81,6 +101,15 @@ export function initMessages({ socket } = {}) {
             chatBox.appendChild(div);
         });
         chatBox.scrollTop = chatBox.scrollHeight;
+
+        // NEW: reflect loaded messages in lastMessages for AI use (normalized shape)
+        window.AVChat = window.AVChat || {};
+        window.AVChat.lastMessages = (messages || []).map(m => ({
+            content: m.content,
+            isSelf: !!m.isSelf,
+            from: m.from != null ? String(m.from) : null,
+            createdAt: m.createdAt || null
+        })).slice(-200);
     }
 
     function setSendEnabled(enabled) {
@@ -120,6 +149,8 @@ export function initMessages({ socket } = {}) {
             const data = await res.json();
             hideLoading();
             renderMessages(data.messages || [], chatId);
+            // store last messages for AI suggestion / other logic
+            window.AVChat.lastMessages = data.messages || [];
             setLastRead(chatId, String((data.messages || []).length));
             setSendEnabled(true);
             if (input) input.focus();
@@ -295,6 +326,75 @@ export function initMessages({ socket } = {}) {
         emojiBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             toggleEmojiPicker();
+        });
+    }
+
+    // AI suggestion: request server AI and show small modal
+    async function requestAISuggestion() {
+        const active = document.querySelector('.chat-item.friend-profile.active');
+        if (!active) return alert('Chọn bạn để lấy gợi ý AI');
+        // get last received message (from other side)
+        const msgs = window.AVChat && window.AVChat.lastMessages ? window.AVChat.lastMessages : [];
+        const lastOther = [...msgs].reverse().find(m => !m.isSelf);
+        if (!lastOther || !lastOther.content) return alert('Không có tin nhắn của đối phương để gợi ý.');
+
+        const lastText = String(lastOther.content).trim();
+        const chatId = active.dataset.id;
+        const chatType = active.dataset.type || 'friend';
+
+        // UI modal
+        const overlay = document.createElement('div');
+        overlay.className = 'friend-request-popup';
+        overlay.innerHTML = `<div class="friend-request-modal" style="min-width:320px;">
+            <div style="font-weight:700;color:#4f8cff;margin-bottom:10px;">AI gợi ý (1 câu)</div>
+            <div id="ai-suggestion-text" style="white-space:pre-wrap;background:#0d1114;padding:12px;border-radius:8px;color:#e6eef8;min-height:48px;">Đang tạo gợi ý...</div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+                <button class="btn" id="ai-insert-btn" disabled>Chèn</button>
+                <button class="btn" id="ai-close-btn" style="background:#ef4444;">Đóng</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        const textEl = overlay.querySelector('#ai-suggestion-text');
+        const insertBtn = overlay.querySelector('#ai-insert-btn');
+        const closeBtn = overlay.querySelector('#ai-close-btn');
+        closeBtn.onclick = () => overlay.remove();
+        insertBtn.onclick = () => {
+            if (input) input.value = textEl.textContent || '';
+            overlay.remove();
+            if (input) input.focus();
+        };
+
+        const aiBtn = document.getElementById('ai-btn');
+        if (aiBtn) aiBtn.disabled = true;
+        try {
+            // Public suggest: send only the last incoming message as prompt (no auth required)
+            const r = await fetch('/api/ai/suggest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ prompt: lastText })
+            });
+            const j = await r.json();
+            if (j && j.success && j.result) {
+                textEl.textContent = j.result;
+                insertBtn.disabled = false;
+            } else {
+                textEl.textContent = j && j.error ? j.error : 'AI không trả về gợi ý.';
+            }
+        } catch (e) {
+            console.error('AI request failed', e);
+            textEl.textContent = 'Lỗi kết nối AI.';
+        } finally {
+            if (aiBtn) aiBtn.disabled = false;
+        }
+    }
+
+    // wire up AI button
+    if (typeof document !== 'undefined') {
+        const aiBtn = document.getElementById('ai-btn');
+        if (aiBtn) aiBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            requestAISuggestion();
         });
     }
 }
