@@ -7,149 +7,300 @@
     <title>AVChat — Welcome</title>
     <style>
         :root {
-            --bg-0: #07121a;
-            --bg-1: #0b1620;
+            --bg1: #04101a;
+            --bg2: #071827;
             --accent: #4f8cff;
-            /* primary app blue */
             --accent-2: #2563eb;
-            /* darker blue */
-            --gloss: rgba(255, 255, 255, 0.12);
             --muted: #bcd4ff;
+            --glass: rgba(255, 255, 255, 0.04);
+        }
+
+        /* base */
+        * {
+            box-sizing: border-box
         }
 
         html,
         body {
             height: 100%;
             margin: 0;
-            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-            background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
-            color: #e8f0ff;
+            font-family: Inter, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(180deg, var(--bg1), var(--bg2));
+            color: #eaf4ff;
             display: grid;
             place-items: center
         }
 
-        .wrap {
+        /* decorative blobs (kept subtle) */
+        .bg-deco {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(64px);
+            opacity: .12;
+            transform: translateZ(0)
+        }
+
+        .blob.a {
+            width: 520px;
+            height: 520px;
+            left: -12%;
+            top: -8%;
+            background: linear-gradient(135deg, var(--accent), #7dd3fc)
+        }
+
+        .blob.b {
+            width: 420px;
+            height: 420px;
+            right: -8%;
+            bottom: -12%;
+            background: linear-gradient(135deg, #7c3aed, #ffb86b)
+        }
+
+        /* panel */
+        .panel {
+            position: relative;
+            z-index: 2;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 12px
+            gap: 14px;
+            padding: 34px;
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.28));
+            backdrop-filter: blur(6px);
+            box-shadow: 0 30px 80px rgba(2, 6, 10, 0.6)
         }
 
-        /* Circular CTA in app tone with gloss and ring */
+        .title {
+            font-size: clamp(1.6rem, 4.6vw, 2.6rem);
+            margin: 0;
+            font-weight: 800;
+            color: #ffffff;
+            text-align: center;
+            letter-spacing: -0.02em
+        }
+
+        .subtitle {
+            color: var(--muted);
+            max-width: 70ch;
+            text-align: center;
+            margin: 0;
+            font-size: 1rem
+        }
+
+        /* Improved CTA: layered visuals, subtle 3D, ring + shine */
+        .cta-wrap {
+            display: grid;
+            place-items: center;
+            position: relative
+        }
+
         .cta {
-            width: 200px;
-            height: 200px;
+            --size: 200px;
+            width: var(--size);
+            height: var(--size);
             border-radius: 50%;
-            border: 2px solid rgba(79, 140, 255, 0.14);
-            background:
-                radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.06), transparent 20%),
-                linear-gradient(180deg, var(--accent), var(--accent-2));
-            color: #fff;
-            font-weight: 900;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 20px 60px rgba(79, 140, 255, 0.14), inset 0 -6px 20px rgba(0, 0, 0, 0.18);
-            position: relative;
+            border: 0;
             cursor: pointer;
-            outline: none;
-            transition: transform .18s ease, box-shadow .18s ease;
+            position: relative;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(180deg, var(--accent), var(--accent-2));
+            color: #041224;
+            font-weight: 900;
+            box-shadow:
+                0 18px 48px rgba(37, 99, 235, 0.12),
+                0 6px 18px rgba(2, 6, 10, 0.6),
+                inset 0 -10px 32px rgba(0, 0, 0, 0.2);
+            transform: translateZ(0);
+            transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+            overflow: hidden;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: .9px;
         }
 
-        .cta::after {
-            content: '';
+        /* subtle outer glow ring (pseudo-element) */
+        .cta::before {
+            content: "";
             position: absolute;
-            left: 12%;
-            top: 8%;
-            width: 76%;
-            height: 48%;
+            inset: -10px;
             border-radius: 50%;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
-            mix-blend-mode: overlay;
-            pointer-events: none;
+            background: radial-gradient(closest-side, rgba(79, 140, 255, 0.06), transparent 60%);
             filter: blur(8px);
-            opacity: 0.95;
+            opacity: 0.9;
+            transition: opacity .18s ease, transform .18s ease;
+            transform: scale(1);
+            pointer-events: none;
         }
 
+        /* glossy streak */
+        .cta::after {
+            content: "";
+            position: absolute;
+            left: 10%;
+            top: 6%;
+            width: 80%;
+            height: 46%;
+            border-radius: 50%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.02));
+            mix-blend-mode: overlay;
+            filter: blur(6px);
+            opacity: 0.95;
+            pointer-events: none;
+        }
+
+        /* inner content */
         .cta .inner {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 6px
+            gap: 6px;
+            z-index: 2
         }
 
-        .cta .icon {
-            font-size: 2.2rem;
-            display: block
+        .cta .emoji {
+            font-size: 2rem;
+            display: block;
+            transform-origin: center;
+            transition: transform .25s cubic-bezier(.2, .9, .28, 1)
         }
 
         .cta .label {
-            font-size: .98rem;
+            font-size: 1rem;
             color: #041224
         }
 
+        /* hover / active */
         .cta:hover {
-            transform: translateY(-6px) scale(1.03);
-            box-shadow: 0 36px 120px rgba(79, 140, 255, 0.22)
+            transform: translateY(-8px) scale(1.03);
+            box-shadow: 0 40px 130px rgba(79, 140, 255, 0.18)
+        }
+
+        .cta:hover .emoji {
+            transform: translateY(-4px) scale(1.08)
         }
 
         .cta:active {
-            transform: translateY(-2px) scale(.99)
+            transform: translateY(-3px) scale(.995)
         }
 
         .cta:focus-visible {
-            box-shadow: 0 0 0 6px rgba(79, 140, 255, 0.14), 0 36px 120px rgba(79, 140, 255, 0.18)
+            outline: 6px solid rgba(79, 140, 255, 0.12);
+            outline-offset: 6px
         }
 
-        .cta.pulse {
-            animation: softPulse 3.2s ease-in-out infinite
+        /* animated sparkle (subtle) */
+        .sparkle {
+            position: absolute;
+            right: 6%;
+            top: 10%;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.85);
+            filter: blur(6px);
+            opacity: 0.06;
+            transform: translateY(0) scale(1);
+            animation: sparkleMove 3.2s linear infinite;
+            pointer-events: none;
         }
 
-        @keyframes softPulse {
+        @keyframes sparkleMove {
             0% {
-                transform: scale(1)
+                opacity: .06;
+                transform: translateY(0) scale(1)
             }
 
             50% {
-                transform: scale(1.02)
+                opacity: .16;
+                transform: translateY(-6px) scale(1.2)
             }
 
             100% {
-                transform: scale(1)
+                opacity: .06;
+                transform: translateY(0) scale(1)
             }
+        }
+
+        /* ring pulse when present */
+        @keyframes ringPulse {
+            0% {
+                box-shadow: 0 12px 36px rgba(79, 140, 255, 0.06)
+            }
+
+            50% {
+                box-shadow: 0 28px 78px rgba(79, 140, 255, 0.12);
+                transform: translateY(-2px)
+            }
+
+            100% {
+                box-shadow: 0 12px 36px rgba(79, 140, 255, 0.06)
+            }
+        }
+
+        .cta.pulse {
+            animation: ringPulse 3.2s ease-in-out infinite
         }
 
         .note {
-            color: var(--muted);
+            color: rgba(234, 244, 255, 0.82);
             font-size: .95rem
         }
 
-        @media (max-width: 420px) {
+        /* accessibility: respect reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+
+            .cta,
+            .cta.pulse,
+            .sparkle {
+                animation: none;
+                transition: none
+            }
+        }
+
+        /* responsive sizes */
+        @media (max-width: 460px) {
             .cta {
-                width: 150px;
-                height: 150px
+                --size: 150px
             }
 
-            .cta .icon {
-                font-size: 1.8rem
+            .title {
+                font-size: 1.4rem
             }
         }
     </style>
 </head>
 
 <body>
-    <div class="wrap" role="main" aria-label="Landing">
-        <button id="getStarted" class="cta pulse" aria-label="Get Started"
-            data-target="<%= (typeof user !== 'undefined' && user) ? '/chat' : '/login' %>">
-            <span class="inner">
-                <span class="icon">💬</span>
-                <span class="label">Get Started</span>
-            </span>
-        </button>
-        <div class="note">Nhanh — trực quan. Bấm để bắt đầu.</div>
+    <div class="bg-deco" aria-hidden="true">
+        <div class="blob a"></div>
+        <div class="blob b"></div>
+    </div>
+
+    <div class="panel" role="main" aria-label="Landing">
+        <h1 class="title">AVChat</h1>
+        <p class="subtitle">Nhanh — An toàn — Thông minh. Bấm để bắt đầu trải nghiệm trò chuyện ngay lập tức.</p>
+
+        <div class="cta-wrap">
+            <button id="getStarted" class="cta pulse" aria-label="Get Started"
+                data-target="<%= (typeof user !== 'undefined' && user) ? '/chat' : '/login' %>">
+                <span class="inner" aria-hidden="true">
+                    <span class="emoji">💬</span>
+                    <span class="label">Get Started</span>
+                </span>
+                <span class="sparkle" aria-hidden="true"></span>
+            </button>
+        </div>
+
+        <p class="note">Miễn phí · Không cần cài đặt · Hỗ trợ AI gợi ý</p>
     </div>
 
     <script>

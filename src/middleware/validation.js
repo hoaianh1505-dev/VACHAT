@@ -6,8 +6,10 @@ exports.register = (req, res, next) => {
     next();
 };
 
+// login: validate email instead of username
 exports.login = (req, res, next) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.render('login', { error: 'Missing fields' });
+    const { email, password } = req.body;
+    if (!email || !password) return res.render('login', { error: 'Missing fields' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || ''))) return res.render('login', { error: 'Invalid email' });
     next();
 };

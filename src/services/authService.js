@@ -10,8 +10,9 @@ exports.register = async ({ username, email, password }) => {
     await User.create({ username, email, password: hash });
 };
 
-exports.login = async ({ username, password }) => {
-    const user = await User.findOne({ username });
+exports.login = async ({ email, password }) => {
+    // find by email (login bằng email)
+    const user = await User.findOne({ email: String(email || '').trim() });
     if (!user) throw new Error('Invalid credentials');
     const match = await bcrypt.compare(password, user.password);
     if (!match) throw new Error('Invalid credentials');

@@ -8,14 +8,14 @@
 
 <body>
     <div class="auth-container">
-        <h2>Đăng nhập</h2>
+        <h2>Đăng nhập (Email)</h2>
         <% if (typeof error !=='undefined' ) { %>
             <div class="error">
                 <%= error %>
             </div>
             <% } %>
                 <form method="POST" action="/auth/login">
-                    <input type="text" name="username" placeholder="Username" required />
+                    <input type="email" name="email" placeholder="Email" required />
                     <input type="password" name="password" placeholder="Password" required />
                     <button type="submit">Login</button>
                 </form>
