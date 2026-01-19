@@ -1,75 +1,73 @@
 # AVChat
 
-Ứng dụng chat nhẹ (Express + Socket.IO + MongoDB). Hỗ trợ danh sách bạn bè, nhóm, lưu lịch sử tin nhắn và nhắn tin realtime. Một số tính năng AI có trong mã nhưng hiện đã bị vô hiệu hoá trên nhánh này.
+Ứng dụng chat nhẹ (Express + Socket.IO + MongoDB). Hỗ trợ nhắn tin realtime 1:1 và nhóm, danh sách bạn bè, lưu lịch sử tin nhắn (mã hoá AES). Tính năng AI trong mã có thể bị vô hiệu hoá trên nhánh này.
 
-Mục lục
-- Giới thiệu
-- Yêu cầu
-- Cài đặt & chạy
-- Biến môi trường
-- Ghi chú bảo mật
-- Cấu trúc dự án
-- Khắc phục sự cố nhanh
-
-Giới thiệu
----------
-AVChat là ví dụ minh hoạ hệ thống chat client–server: server dùng Express + Socket.IO, client là các view EJS với JS phía client (fetch + socket). Tin nhắn được lưu trong MongoDB (mã hoá AES).
+Nội dung nhanh
+- Server: Node.js (Express) + Socket.IO, REST API under /api, views EJS ở /src/view.
+- Client: Static JS trong /src/public (messages.mjs, friends.mjs, socket-client.mjs).
+- DB: MongoDB (Atlas hoặc self‑hosted).
 
 Yêu cầu
--------
 - Node.js >= 18
 - npm
-- MongoDB (Atlas hoặc self-hosted)
+- MongoDB URI (Atlas hoặc local)
 
 Cài đặt & chạy
---------------
 1. Cài phụ thuộc:
    npm install
 
-2. Tạo file `.env` ở gốc dự án (không commit file này). Ví dụ tối thiểu:
+2. Tạo file `.env` (không commit) với tối thiểu:
    MONGO_URI=your_mongo_uri
    PORT=1505
    SESSION_SECRET=your_session_secret
+   (tùy chọn) FRONTEND_URL=https://your-frontend.example
 
-3. Chạy môi trường phát triển:
+3. Chạy server (dev):
    npm run dev
 
+4. Mở trình duyệt tới http://localhost:1505 (hoặc URL công khai qua ngrok)
+
+Chạy client tách rời
+- Nếu bạn muốn host giao diện trên máy khác, set `FRONTEND_URL` trên server và trên client đặt:
+  <script>window.BACKEND_URL='https://your-server.example'</script>
+- Đảm bảo cả 2 client kết nối cùng 1 backend (ngrok/public IP) để realtime hoạt động.
+
 Biến môi trường chính
-----------------------
-- MONGO_URI — chuỗi kết nối MongoDB (bắt buộc để dùng DB).
-- PORT — cổng server (mặc định 3000/1505).
+- MONGO_URI — chuỗi kết nối MongoDB (bắt buộc cho DB/session trong prod).
+- PORT — cổng server.
 - SESSION_SECRET — secret cho express-session.
-- CHAT_SECRET — khóa AES cho mã hóa tin nhắn (nên đặt trong prod).
-- GEMINI_API_KEY / SERVICE_ACCOUNT_JSON / GOOGLE_APPLICATION_CREDENTIALS — cấu hình AI (không bắt buộc; AI có thể bị vô hiệu hóa).
+- CHAT_SECRET — (tùy) AES key để mã hoá tin nhắn.
+- FRONTEND_URL — origin client (dùng khi client tách rời).
+- GEMINI_API_KEY / SERVICE_ACCOUNT_JSON — AI (có thể bị tắt).
 
-Ghi chú bảo mật
----------------
-- KHÔNG commit file `.env` chứa secrets. Sử dụng secret manager cho production.
-- Nếu MONGO_URI không được cấu hình, app sẽ dùng in-memory session store (không an toàn cho production).
-- Ai features trong mã có thể bị tắt — README và server log sẽ thông báo.
+Lưu ý realtime & debug
+- Realtime hoạt động khi mọi client kết nối tới cùng 1 Socket.IO server.
+- Nếu bạn chạy 2 server local (mỗi máy 1 server), 2 client sẽ không thấy tin nhắn của nhau — cần 1 server chung hoặc dùng adapter (Redis) để đồng bộ nhiều instance.
+- Kiểm tra DevTools → Network (WS) để xác nhận socket kết nối tới đúng backend.
+- Server có helper `io.emitToUser` để gửi tới tất cả sockets của 1 user; client phải gửi userId (window.userId) hoặc gọi register(userId) sau khi connect.
 
-Cấu trúc dự án (chính)
------------------------
+AI
+- AI có thể bị tắt trên nhánh này. Nếu muốn bật, cung cấp GEMINI_API_KEY hoặc cấu hình Service Account và khôi phục aiService.
+
+Bảo mật
+- KHÔNG commit `.env` chứa secrets.
+- Dùng HTTPS và `SESSION_SECRET` mạnh cho production.
+- Nếu dùng cookie cross‑origin: host client qua HTTPS và set FRONTEND_URL; cookie.sameSite có thể là 'none' và secure=true.
+
+Khắc phục nhanh
+- Lỗi session store / connect-mongo: kiểm tra MONGO_URI, server log báo nếu fallback sang MemoryStore.
+- Tin nhắn không realtime: kiểm tra client BACKEND_URL/socket URL, server logs (socket register), và đảm bảo cùng 1 backend.
+
+Cấu trúc chính
 - src/server.js — entrypoint
-- src/config — cấu hình env / db / socket
-- src/routes — các route (API dưới /api)
-- src/controllers — xử lý request
-- src/services — logic nghiệp vụ (auth, messages...)
-- src/models — Mongoose schemas
-- src/public — static (JS/CSS) và view (EJS)
-- src/socket — handlers cho Socket.IO
+- src/config — môi trường / db / socket
+- src/routes, src/controllers, src/services, src/models
+- src/public — client JS/CSS
+- src/socket — handlers Socket.IO
 - src/utils — helper
 
-Khắc phục sự cố nhanh
----------------------
-- Lỗi liên quan Mongo / session store: kiểm tra MONGO_URI trong `.env`.
-- Lỗi đăng nhập/đăng ký: kiểm tra kết nối DB và biến môi trường.
-- Muốn bật lại AI: cung cấp GEMINI_API_KEY hoặc cấu hình Service Account và khôi phục aiService.
-
 Góp ý & đóng góp
----------------
-Tạo branch mới, thực hiện thay đổi, mở pull request. Luôn giữ secrets ngoài VCS.
+- Tạo branch, commit, PR. Giữ secrets ngoài repo.
 
 License
--------
-MIT (tuỳ chỉnh nếu cần)
+- MIT

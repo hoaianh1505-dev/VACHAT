@@ -15,7 +15,13 @@ require('./models/Group');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketio(server);
+const io = socketio(server, {
+    cors: {
+        origin: env.FRONTEND_URL || true,
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
+});
 
 // initialize socket map + handlers via config
 socketConfig(io);
@@ -49,8 +55,9 @@ app.use(session({
     saveUninitialized: false,
     store: sessionStore,
     cookie: {
-        secure: (process.env.NODE_ENV === 'production'), // https only in prod
-        sameSite: 'lax' // allow sending cookie on same-site navigations/fetches
+        // if FRONTEND_URL provided and uses https, recommend sameSite='none' and secure=true for cross-site cookies
+        secure: (process.env.NODE_ENV === 'production') || (env.FRONTEND_URL && String(env.FRONTEND_URL).startsWith('https')),
+        sameSite: env.FRONTEND_URL ? 'none' : 'lax'
     }
 }));
 
@@ -100,4 +107,6 @@ const PORT = env.PORT || process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`App link: http://localhost:${PORT}`);
+    // show configured frontend origin for debugging
+    if (env.FRONTEND_URL) console.log('Allowed frontend origin (CORS/SocketIO):', env.FRONTEND_URL);
 });

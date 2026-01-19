@@ -32,7 +32,9 @@ const env = {
     GOOGLE_APPLICATION_CREDENTIALS: raw.GOOGLE_APPLICATION_CREDENTIALS || '',
     SERVICE_ACCOUNT_JSON: SERVICE_ACCOUNT_JSON,
     SERVICE_ACCOUNT_OBJ,
-    GCP_PROJECT: raw.GCP_PROJECT || ''
+    GCP_PROJECT: raw.GCP_PROJECT || '',
+    // new: frontend origin (where standalone client is hosted), use exact origin e.g. https://demo.example.com or http://192.168.0.10:8080
+    FRONTEND_URL: raw.FRONTEND_URL || raw.ALLOWED_ORIGIN || ''
 };
 
 // helper accessor (safe)
