@@ -6,7 +6,8 @@ export function initMessages({ socket } = {}) {
     const emojiBtn = document.getElementById('emoji-btn');
     const emojiPicker = document.getElementById('emoji-picker');
 
-    // small emoji set; bạn có thể mở rộng
+    function getDeleteBtn() { return document.getElementById('delete-convo-btn'); }
+
     const EMOJIS = ['😀', '😂', '😍', '👍', '🎉', '🔥', '🙏', '😢', '😎', '🤔', '😅', '👏', '💯', '🎁', '🥳'];
 
     function getFriendInfo(friendId) {
@@ -19,17 +20,9 @@ export function initMessages({ socket } = {}) {
         return { avatar, username };
     }
 
-    // last-read helpers
-    function setLastRead(friendId, count) {
-        const key = `chat_last_read_${friendId}`;
-        localStorage.setItem(key, String(count || 0));
-    }
-    function getLastRead(friendId) {
-        const key = `chat_last_read_${friendId}`;
-        return parseInt(localStorage.getItem(key) || '0', 10);
-    }
+    function setLastRead(friendId, count) { localStorage.setItem(`chat_last_read_${friendId}`, String(count || 0)); }
+    function getLastRead(friendId) { return parseInt(localStorage.getItem(`chat_last_read_${friendId}`) || '0', 10); }
 
-    // NEW: append single message (avoid full reload)
     function appendMessage(data) {
         if (!chatBox) return;
         const div = document.createElement('div');
@@ -37,45 +30,37 @@ export function initMessages({ socket } = {}) {
         if (!data.isSelf) {
             const { avatar, username } = getFriendInfo(data.from);
             div.innerHTML = `
-				<div style="display:flex;align-items:flex-end;gap:8px;">
-					<img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
-					<div>
-						<div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${username || ''}</div>
-						<div>${data.message}</div>
-					</div>
-				</div>
-			`;
+                <div style="display:flex;align-items:flex-end;gap:8px;">
+                    <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
+                    <div>
+                        <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${username || ''}</div>
+                        <div>${escapeHtml(String(data.message || ''))}</div>
+                    </div>
+                </div>`;
         } else {
             div.textContent = data.message;
         }
         chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
 
-        // NEW: update in-memory lastMessages for current chat so AI uses latest incoming message
         window.AVChat = window.AVChat || {};
         window.AVChat.lastMessages = window.AVChat.lastMessages || [];
         try {
-            const msgObj = {
+            window.AVChat.lastMessages.push({
                 content: data.message,
                 isSelf: !!data.isSelf,
                 from: data.from != null ? String(data.from) : (data.isSelf ? String(window.userId) : null),
                 createdAt: data.createdAt || new Date()
-            };
-            // push and trim to keep only recent messages
-            window.AVChat.lastMessages.push(msgObj);
+            });
             const MAX_STORE = 200;
-            if (window.AVChat.lastMessages.length > MAX_STORE) {
-                window.AVChat.lastMessages = window.AVChat.lastMessages.slice(-MAX_STORE);
-            }
-        } catch (e) {
-            // noop
-        }
+            if (window.AVChat.lastMessages.length > MAX_STORE) window.AVChat.lastMessages = window.AVChat.lastMessages.slice(-MAX_STORE);
+        } catch (e) { /* noop */ }
     }
 
-    // render messages
-    function renderMessages(messages, currentChatId) {
+    function renderMessages(messages = []) {
+        if (!chatBox) return;
         chatBox.innerHTML = '';
-        if (!messages || !messages.length) {
+        if (!messages.length) {
             const div = document.createElement('div');
             div.className = 'system-message';
             div.textContent = 'Bạn đã bắt đầu cuộc trò chuyện.';
@@ -88,13 +73,13 @@ export function initMessages({ socket } = {}) {
             if (!msg.isSelf) {
                 const { avatar, username } = getFriendInfo(String(msg.from));
                 div.innerHTML = `
-					<div style="display:flex;align-items:flex-end;gap:8px;">
-						<img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
-						<div>
-							<div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${username || ''}</div>
-							<div>${msg.content}</div>
-						</div>
-					</div>`;
+                    <div style="display:flex;align-items:flex-end;gap:8px;">
+                        <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
+                        <div>
+                            <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${username || ''}</div>
+                            <div>${escapeHtml(String(msg.content || ''))}</div>
+                        </div>
+                    </div>`;
             } else {
                 div.textContent = msg.content;
             }
@@ -102,7 +87,6 @@ export function initMessages({ socket } = {}) {
         });
         chatBox.scrollTop = chatBox.scrollHeight;
 
-        // NEW: reflect loaded messages in lastMessages for AI use (normalized shape)
         window.AVChat = window.AVChat || {};
         window.AVChat.lastMessages = (messages || []).map(m => ({
             content: m.content,
@@ -126,34 +110,44 @@ export function initMessages({ socket } = {}) {
         chatBox.innerHTML = '';
         chatBox.appendChild(el);
     }
-
     function hideLoading() {
         const el = document.getElementById('messages-loading');
         if (el && el.parentNode) el.parentNode.removeChild(el);
     }
 
-    // load history
+    // hide delete by default
+    const deleteBtn = getDeleteBtn();
+    if (deleteBtn) { deleteBtn.style.display = 'none'; deleteBtn.dataset.chatId = ''; deleteBtn.dataset.chatType = ''; }
+
     async function loadMessages(chatType, chatId) {
         if (!chatType || !chatId) {
             setSendEnabled(false);
+            const dbtn = getDeleteBtn();
+            if (dbtn) { dbtn.style.display = 'none'; dbtn.dataset.chatId = ''; dbtn.dataset.chatType = ''; }
             return;
         }
         setSendEnabled(false);
         showLoading();
         try {
-            const res = await fetch(`/messages?chatType=${encodeURIComponent(chatType)}&chatId=${encodeURIComponent(chatId)}`, {
-                method: 'GET',
-                credentials: 'same-origin'
-            });
+            const res = await fetch(`/messages?chatType=${encodeURIComponent(chatType)}&chatId=${encodeURIComponent(chatId)}`, { method: 'GET', credentials: 'same-origin' });
             if (res.status === 401) return window.location.href = '/login';
             const data = await res.json();
             hideLoading();
-            renderMessages(data.messages || [], chatId);
-            // store last messages for AI suggestion / other logic
+            renderMessages(data.messages || []);
+            window.AVChat = window.AVChat || {};
             window.AVChat.lastMessages = data.messages || [];
             setLastRead(chatId, String((data.messages || []).length));
             setSendEnabled(true);
             if (input) input.focus();
+
+            // ensure delete button shown for this chat (use getter)
+            const dbtn = getDeleteBtn();
+            if (dbtn) { dbtn.style.display = 'block'; dbtn.dataset.chatId = chatId; dbtn.dataset.chatType = chatType; }
+
+            // NEW: notify other scripts/UI that conversation opened
+            try {
+                window.dispatchEvent(new CustomEvent('conversation-opened', { detail: { chatType, chatId } }));
+            } catch (e) { /* noop for older browsers */ }
         } catch (err) {
             console.error('loadMessages error', err);
             hideLoading();
@@ -161,54 +155,62 @@ export function initMessages({ socket } = {}) {
         }
     }
 
-    // expose for external uses
+    // expose loader
     window.AVChat = window.AVChat || {};
     window.AVChat.loadMessages = loadMessages;
-
-    // currentChat state
     window.AVChat.currentChat = window.AVChat.currentChat || null;
 
-    // Click handler: delegation on friends list
+    // expose showDeleteFor so other scripts can request the delete button to appear
+    function showDeleteFor(chatType, chatId) {
+        const dbtn = getDeleteBtn();
+        if (!dbtn) return;
+        dbtn.dataset.chatType = String(chatType || '');
+        dbtn.dataset.chatId = String(chatId || '');
+        dbtn.style.display = 'inline-flex';
+    }
+    window.AVChat.showDeleteFor = showDeleteFor;
+
+    // friends list click (delegation)
     const friendsList = document.getElementById('friends');
     if (friendsList) {
         friendsList.addEventListener('click', async (e) => {
             const item = e.target.closest('.chat-item.friend-profile');
             if (!item) return;
-            // mark active
             document.querySelectorAll('.chat-item.friend-profile.active').forEach(n => n.classList.remove('active'));
             item.classList.add('active');
 
             const chatId = item.dataset.id;
             window.AVChat.currentChat = { type: 'friend', id: chatId };
 
-            // hide placeholder
             const placeholder = document.getElementById('chat-placeholder');
             if (placeholder) placeholder.style.display = 'none';
 
-            // load messages
             await loadMessages('friend', chatId);
 
-            // reset unread badge
             const badge = item.querySelector('.unread-badge');
             if (badge) badge.style.display = 'none';
 
-            // update lastRead (already set in loadMessages)
-            // ensure pendingMessages removed if present
             if (window.AVChat.pendingMessages) delete window.AVChat.pendingMessages[chatId];
+
+            // also ensure delete button visible even if other script triggered selection
+            showDeleteFor('friend', chatId);
         });
     }
 
-    // send handler: DO NOT emit socket or reload; rely on server emit
+    // send handler
     if (form) {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const active = document.querySelector('.chat-item.friend-profile.active');
-            if (!active) return alert('Chọn bạn để gửi tin nhắn');
+            if (!active) {
+                if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert('Chọn bạn để gửi tin nhắn');
+                else alert('Chọn bạn để gửi tin nhắn');
+                return;
+            }
             const chatId = active.dataset.id;
             const chatType = active.dataset.type || 'friend';
             const text = input.value && input.value.trim();
             if (!text) return;
-            // disable send to prevent double clicks
             if (sendBtn) sendBtn.disabled = true;
             try {
                 const resp = await fetch('/send-message', {
@@ -220,22 +222,22 @@ export function initMessages({ socket } = {}) {
                 if (resp.status === 401) return window.location.href = '/login';
                 const result = await resp.json();
                 if (result.success) {
-                    // clear input and wait for server realtime emit to append (avoid reload)
                     input.value = '';
-                    // optionally optimistic append could be added here with a pending flag
                 } else {
-                    alert(result.error || 'Không gửi được tin nhắn');
+                    if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert(result.error || 'Không gửi được tin nhắn');
+                    else alert(result.error || 'Không gửi được tin nhắn');
                 }
             } catch (err) {
                 console.error('send error', err);
-                alert('Lỗi gửi tin nhắn');
+                if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert('Lỗi gửi tin nhắn');
+                else alert('Lỗi gửi tin nhắn');
             } finally {
                 if (sendBtn) sendBtn.disabled = false;
             }
         });
     }
 
-    // realtime incoming: append single message instead of reloading
+    // realtime incoming
     if (socket) {
         socket.on('chat message', (data) => {
             const active = document.querySelector('.chat-item.friend-profile.active');
@@ -244,21 +246,26 @@ export function initMessages({ socket } = {}) {
             const chatMsgId = String(data.chat && data.chat.id);
 
             if (activeId && ((data.isSelf && chatMsgId === activeId) || (!data.isSelf && fromId === activeId))) {
-                // append single message to avoid re-render flicker
                 appendMessage({ isSelf: data.isSelf, from: data.from, message: data.message, createdAt: data.createdAt });
-                // update last read count
                 const count = chatBox.children.length;
                 setLastRead(activeId, count);
             } else {
-                // update badge (unchanged)
                 const friendId = data.isSelf ? chatMsgId : fromId;
                 const item = document.querySelector(`.chat-item.friend-profile[data-id="${friendId}"]`);
                 if (item) {
-                    const badge = item.querySelector('.unread-badge');
-                    if (badge) {
+                    let badge = item.querySelector('.unread-badge');
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'friend-request-badge unread-badge';
+                        badge.style.position = 'absolute';
+                        badge.style.right = '12px';
+                        badge.style.top = '10px';
+                        badge.textContent = '1';
+                        item.appendChild(badge);
+                    } else {
+                        const cur = parseInt(badge.textContent || '0', 10);
+                        badge.textContent = String(cur + 1);
                         badge.style.display = 'inline-block';
-                        const currentCount = parseInt(badge.textContent || '0', 10);
-                        badge.textContent = String(currentCount + 1);
                     }
                 }
             }
@@ -276,7 +283,6 @@ export function initMessages({ socket } = {}) {
             span.textContent = e;
             span.onclick = (ev) => {
                 ev.stopPropagation();
-                // insert emoji at caret / append
                 if (input) {
                     const start = input.selectionStart || input.value.length;
                     const end = input.selectionEnd || input.value.length;
@@ -285,10 +291,8 @@ export function initMessages({ socket } = {}) {
                     const pos = start + e.length;
                     input.setSelectionRange(pos, pos);
                     input.focus();
-                    // enable send button if was disabled
                     if (sendBtn) sendBtn.disabled = false;
                 }
-                // keep picker open for multiple picks
             };
             emojiPicker.appendChild(span);
         });
@@ -313,7 +317,6 @@ export function initMessages({ socket } = {}) {
         }
     }
 
-    // close picker when clicking outside
     document.addEventListener('click', (e) => {
         if (!emojiPicker || !emojiBtn) return;
         if (emojiPicker.style.display === 'none') return;
@@ -322,27 +325,27 @@ export function initMessages({ socket } = {}) {
         emojiPicker.style.display = 'none';
     });
 
-    if (emojiBtn) {
-        emojiBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleEmojiPicker();
-        });
-    }
+    if (emojiBtn) emojiBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
 
-    // AI suggestion: request server AI and show small modal
+    // AI suggestion modal (uses fetch /api/ai/suggest)
     async function requestAISuggestion() {
         const active = document.querySelector('.chat-item.friend-profile.active');
-        if (!active) return alert('Chọn bạn để lấy gợi ý AI');
-        // get last received message (from other side)
+        if (!active) {
+            if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert('Chọn bạn để lấy gợi ý AI');
+            else alert('Chọn bạn để lấy gợi ý AI');
+            return;
+        }
         const msgs = window.AVChat && window.AVChat.lastMessages ? window.AVChat.lastMessages : [];
         const lastOther = [...msgs].reverse().find(m => !m.isSelf);
-        if (!lastOther || !lastOther.content) return alert('Không có tin nhắn của đối phương để gợi ý.');
-
+        if (!lastOther || !lastOther.content) {
+            if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert('Không có tin nhắn của đối phương để gợi ý.');
+            else alert('Không có tin nhắn của đối phương để gợi ý.');
+            return;
+        }
         const lastText = String(lastOther.content).trim();
         const chatId = active.dataset.id;
         const chatType = active.dataset.type || 'friend';
 
-        // UI modal
         const overlay = document.createElement('div');
         overlay.className = 'friend-request-popup';
         overlay.innerHTML = `<div class="friend-request-modal" style="min-width:320px;">
@@ -367,7 +370,6 @@ export function initMessages({ socket } = {}) {
         const aiBtn = document.getElementById('ai-btn');
         if (aiBtn) aiBtn.disabled = true;
         try {
-            // Public suggest: send only the last incoming message as prompt (no auth required)
             const r = await fetch('/api/ai/suggest', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -389,12 +391,13 @@ export function initMessages({ socket } = {}) {
         }
     }
 
-    // wire up AI button
     if (typeof document !== 'undefined') {
         const aiBtn = document.getElementById('ai-btn');
-        if (aiBtn) aiBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            requestAISuggestion();
-        });
+        if (aiBtn) aiBtn.addEventListener('click', (e) => { e.stopPropagation(); requestAISuggestion(); });
+    }
+
+    // utility: simple HTML escape
+    function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 }

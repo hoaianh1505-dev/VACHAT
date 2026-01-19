@@ -31,7 +31,8 @@ exports.getMessages = asyncHandler(async (req, res) => {
 exports.deleteConversation = asyncHandler(async (req, res) => {
     const userId = req.session.user && req.session.user._id;
     const { chatType, chatId } = req.body;
-    if (!userId || !chatType || !chatId) return res.status(400).json({ success: false, error: 'Thiếu thông tin' });
+    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    if (!chatType || !chatId) return res.status(400).json({ success: false, error: 'Thiếu thông tin' });
 
     try {
         const io = req.app.get('io');
