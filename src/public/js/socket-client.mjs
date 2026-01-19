@@ -1,4 +1,6 @@
 const backend = (typeof window !== 'undefined' && window.BACKEND_URL) ? window.BACKEND_URL.replace(/\/$/, '') : '';
+const initialUserId = (typeof window !== 'undefined' && window.userId) ? String(window.userId) : null;
+
 export const socket = backend
     ? io(backend, {
         withCredentials: true,
@@ -6,42 +8,40 @@ export const socket = backend
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
-        path: '/socket.io'
+        path: '/socket.io',
+        auth: { userId: initialUserId }
     })
-    : io(); // same-origin
+    : io({ auth: { userId: initialUserId } }); // same-origin
 
-let _pendingRegisterUserId = null;
+let _pendingRegisterUserId = initialUserId || null;
 
 function _doRegister(id) {
     try {
         if (!id) return;
+        _pendingRegisterUserId = String(id);
+        // set auth so reconnects include userId
+        if (socket && socket.auth) socket.auth.userId = _pendingRegisterUserId;
         if (socket && socket.connected) {
             socket.emit('register-user', String(id));
-        } else {
-            // keep pending and will send on connect
-            _pendingRegisterUserId = String(id);
         }
     } catch (e) { /* noop */ }
 }
 
-// auto-send pending register on connect / reconnect
+// auto-send pending register on connect
 socket.on('connect', () => {
     if (_pendingRegisterUserId) {
         try { socket.emit('register-user', _pendingRegisterUserId); } catch (e) { }
     }
 });
 
-// also ensure re-register on reconnection attempts
-socket.on('reconnect', () => {
-    if (_pendingRegisterUserId) {
-        try { socket.emit('register-user', _pendingRegisterUserId); } catch (e) { }
-    }
+// ensure auth carried on reconnect attempts
+socket.on('reconnect_attempt', () => {
+    if (_pendingRegisterUserId && socket && socket.auth) socket.auth.userId = _pendingRegisterUserId;
 });
 
 // public API
 export function register(userId) {
     if (!userId) return;
-    _pendingRegisterUserId = String(userId);
     _doRegister(userId);
 }
 

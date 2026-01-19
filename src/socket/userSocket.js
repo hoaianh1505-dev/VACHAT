@@ -11,11 +11,10 @@ module.exports = (io, socket) => {
         try {
             io.userSockets = io.userSockets || {};
             io.socketUser = io.socketUser || {};
-            io.userSocketMap = io.userSocketMap || {};
             io.userSockets[uid] = io.userSockets[uid] || new Set();
             io.userSockets[uid].add(socket.id);
             io.socketUser[socket.id] = uid;
-            io.userSocketMap[uid] = socket.id;
+            try { socket.emit('user-registered', { userId: uid }); } catch (e) { }
         } catch (e) { /* noop */ }
     });
 };

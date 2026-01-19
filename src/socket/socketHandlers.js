@@ -21,7 +21,20 @@ module.exports = (io) => {
     };
 
     io.on('connection', (socket) => {
-        // allow registration (client should call after auth)
+        // auto-register from handshake.auth if provided
+        try {
+            const hid = socket.handshake && socket.handshake.auth && socket.handshake.auth.userId;
+            if (hid) {
+                const uid = String(hid);
+                io.userSockets[uid] = io.userSockets[uid] || new Set();
+                io.userSockets[uid].add(socket.id);
+                io.socketUser[socket.id] = uid;
+                socket.userId = uid;
+                try { socket.emit('user-registered', { userId: uid }); } catch (e) { }
+            }
+        } catch (e) { /* noop */ }
+
+        // explicit register event (client may emit)
         socket.on('register-user', (userId) => {
             if (!userId) return;
             const uid = String(userId);
@@ -29,11 +42,10 @@ module.exports = (io) => {
             io.userSockets[uid].add(socket.id);
             io.socketUser[socket.id] = uid;
             socket.userId = uid;
-            // optional ack for debug
             try { socket.emit('user-registered', { userId: uid }); } catch (e) { }
         });
 
-        // join/leave group rooms convenience
+        // convenience join/leave group rooms
         socket.on('join-group', (groupId) => { if (groupId) socket.join(`group_${String(groupId)}`); });
         socket.on('leave-group', (groupId) => { if (groupId) socket.leave(`group_${String(groupId)}`); });
 
