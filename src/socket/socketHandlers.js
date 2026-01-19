@@ -4,45 +4,84 @@ const groupSocket = require('./groupSocket');
 const friendSocket = require('./friendSocket');
 
 module.exports = (io) => {
-    // maintain a map of userId -> socketId for emitToUser helpers
-    io.userSocketMap = io.userSocketMap || {};
+    // initialize maps if missing
+    io.userSocketMap = io.userSocketMap || {};    // userId -> single socketId (legacy compat)
+    io.userSockets = io.userSockets || {};        // userId -> Set of socketIds
+    io.socketUser = io.socketUser || {};          // socketId -> userId
 
-    // helper: emit to user's current socket id (best-effort)
+    // helper: emit to all sockets of a user (prefer this)
     io.emitToUser = function (userId, event, payload) {
         try {
-            const sid = io.userSocketMap && io.userSocketMap[String(userId)];
-            if (sid) return io.to(sid).emit(event, payload);
-            // fallback: broadcast — avoid leaking to unrelated users
+            const uid = String(userId);
+            // prefer sending to all known sockets
+            const set = io.userSockets[uid];
+            if (set && set.size) {
+                for (const sid of set) {
+                    io.to(sid).emit(event, payload);
+                }
+                return;
+            }
+            // fallback to single-map (legacy)
+            const sid = io.userSocketMap[uid];
+            if (sid) io.to(sid).emit(event, payload);
         } catch (e) { /* noop */ }
     };
 
-    // load and register non-AI socket handlers
-    try {
-        io.on('connection', (socket) => {
-            // register user on 'register-user'
-            socket.on('register-user', (userId) => {
-                if (userId) {
-                    io.userSocketMap[String(userId)] = socket.id;
-                    socket.userId = String(userId);
-                }
-            });
-
-            // attach handlers
-            userSocket(io, socket);
-            friendSocket(io, socket);
-            messageSocket(io, socket);
-            groupSocket(io, socket);
-
-            socket.on('disconnect', () => {
-                // cleanup map entries
-                try {
-                    if (socket.userId && io.userSocketMap && io.userSocketMap[String(socket.userId)] === socket.id) {
-                        delete io.userSocketMap[String(socket.userId)];
-                    }
-                } catch (e) { /* noop */ }
-            });
+    io.on('connection', (socket) => {
+        // allow client to register its user id after authentication
+        socket.on('register-user', (userId) => {
+            if (!userId) return;
+            const uid = String(userId);
+            io.userSocketMap[uid] = socket.id; // legacy single mapping
+            io.userSockets[uid] = io.userSockets[uid] || new Set();
+            io.userSockets[uid].add(socket.id);
+            io.socketUser[socket.id] = uid;
+            socket.userId = uid;
         });
-    } catch (e) {
-        console.warn('socketHandlers init error:', e && e.message ? e.message : e);
-    }
+
+        // group room helpers (also available in groupSocket)
+        socket.on('join-group', (groupId) => {
+            if (!groupId) return;
+            socket.join(`group_${String(groupId)}`);
+        });
+        socket.on('leave-group', (groupId) => {
+            if (!groupId) return;
+            socket.leave(`group_${String(groupId)}`);
+        });
+
+        // register module handlers (best-effort)
+        try {
+            require('./messageSocket')(io, socket);
+        } catch (e) { console.warn('load messageSocket failed', e); }
+        try {
+            require('./friendSocket')(io, socket);
+        } catch (e) { /* noop */ }
+        try {
+            require('./aiSocket')(io, socket);
+        } catch (e) { /* noop */ }
+        try {
+            require('./userSocket')(io, socket);
+        } catch (e) { /* noop */ }
+        try {
+            require('./groupSocket')(io, socket);
+        } catch (e) { /* noop */ }
+
+        // cleanup on disconnect
+        socket.on('disconnect', () => {
+            const sid = socket.id;
+            const uid = io.socketUser[sid] || socket.userId;
+            if (uid) {
+                // remove from per-user set
+                const set = io.userSockets[String(uid)];
+                if (set) {
+                    set.delete(sid);
+                    if (set.size === 0) delete io.userSockets[String(uid)];
+                    else io.userSocketMap[String(uid)] = Array.from(set)[0]; // update legacy map to an existing socket
+                }
+                // clear legacy mapping if it pointed to this socket
+                if (io.userSocketMap[String(uid)] === sid) delete io.userSocketMap[String(uid)];
+            }
+            delete io.socketUser[sid];
+        });
+    });
 };

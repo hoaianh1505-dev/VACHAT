@@ -26,5 +26,12 @@ module.exports = (io, socket) => {
         }
     });
 
-    // note: disconnect cleanup handled centrally in socketHandlers
+    // simple ping/pong and whoami helper
+    socket.on('ping', (payload) => {
+        socket.emit('pong', payload || {});
+    });
+    socket.on('whoami', () => {
+        socket.emit('whoami', { userId: socket.userId || null });
+    });
+    // could add more user-specific realtime handlers here
 };
