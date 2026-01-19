@@ -75,6 +75,12 @@
                             <% }) %>
                     </ul>
                 </div>
+
+                <div style="padding:0 24px 12px;">
+                    <button id="create-group-btn" class="btn"
+                        style="width:100%;padding:8px 12px;background:#7c3aed;color:#fff;border-radius:8px;border:none;">Tạo
+                        nhóm mới</button>
+                </div>
             </aside>
 
             <main class="chat-main">
@@ -101,6 +107,24 @@
                     <button type="submit" id="send-btn" disabled>Gửi</button>
                 </form>
             </main>
+        </div>
+    </div>
+
+    <!-- thêm modal Tạo nhóm (ẩn) — moved up so JS can find it -->
+    <div id="create-group-modal"
+        style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:9999;">
+        <div style="background:#23232a;padding:16px;border-radius:12px;min-width:320px;max-width:90vw;color:#e6f4ff;">
+            <h3 style="margin:0 0 8px 0;color:#4f8cff;">Tạo nhóm mới</h3>
+            <input id="group-name-input" placeholder="Tên nhóm"
+                style="width:100%;padding:8px;border-radius:8px;border:1px solid #23232a;margin-bottom:8px;background:#0d1114;color:#e6eef8;" />
+            <div id="group-members-list" style="max-height:240px;overflow:auto;margin-bottom:8px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button id="create-group-cancel" class="btn"
+                    style="background:#374151;color:#fff;padding:8px 12px;border-radius:8px;border:none;">Hủy</button>
+                <button id="create-group-confirm" class="btn"
+                    style="background:#4f8cff;color:#07101a;padding:8px 12px;border-radius:8px;border:none;">Tạo (ít
+                    nhất 2 bạn)</button>
+            </div>
         </div>
     </div>
 
@@ -252,6 +276,69 @@
                 }
             });
         }
+
+        // Add create-group UI wiring (minimal)
+        (function () {
+            const openBtn = document.getElementById('create-group-btn');
+            const modal = document.getElementById('create-group-modal');
+            const cancel = document.getElementById('create-group-cancel');
+            const confirm = document.getElementById('create-group-confirm');
+            const membersList = document.getElementById('group-members-list');
+            const nameInput = document.getElementById('group-name-input');
+
+            function buildMembers() {
+                if (!membersList) return;
+                membersList.innerHTML = '';
+                document.querySelectorAll('.chat-item.friend-profile').forEach(li => {
+                    const id = li.dataset.id;
+                    const username = li.querySelector('.friend-username') ? li.querySelector('.friend-username').textContent : id;
+                    const row = document.createElement('div');
+                    row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.justifyContent = 'space-between';
+                    row.style.padding = '6px 8px';
+                    row.innerHTML = `<div style="display:flex;gap:8px;align-items:center;"><input type="checkbox" data-id="${id}" /> <span style="color:#cfe7ff">${username}</span></div>`;
+                    membersList.appendChild(row);
+                });
+            }
+
+            if (openBtn) openBtn.addEventListener('click', () => {
+                buildMembers();
+                if (nameInput) nameInput.value = '';
+                if (modal) modal.style.display = 'flex';
+            });
+            if (cancel) cancel.addEventListener('click', () => { if (modal) modal.style.display = 'none'; });
+
+            if (confirm) confirm.addEventListener('click', async () => {
+                const name = (nameInput && nameInput.value || '').trim();
+                const selected = membersList ? Array.from(membersList.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.dataset.id) : [];
+                if (!name) { if (window.UI && window.UI.alert) await window.UI.alert('Nhập tên nhóm'); else alert('Nhập tên nhóm'); return; }
+                if (!selected || selected.length < 2) { if (window.UI && window.UI.alert) await window.UI.alert('Chọn ít nhất 2 bạn'); else alert('Chọn ít nhất 2 bạn'); return; }
+                confirm.disabled = true;
+                try {
+                    const r = await fetch('/api/groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ name, members: selected }) });
+                    if (r.status === 401) return window.location.href = '/login';
+                    const j = await r.json();
+                    if (j && j.success && j.group) {
+                        const ul = document.getElementById('groups');
+                        if (ul) {
+                            const li = document.createElement('li');
+                            li.className = 'chat-item';
+                            li.dataset.type = 'group';
+                            li.dataset.id = String(j.group._id);
+                            li.textContent = j.group.name;
+                            ul.insertBefore(li, ul.firstChild);
+                            // trigger selection (messages.mjs listens to clicks)
+                            li.click();
+                            // join group room using imported socket
+                            if (socket && socket.emit) socket.emit('join-group', String(j.group._id));
+                        }
+                        if (modal) modal.style.display = 'none';
+                    } else {
+                        if (window.UI && window.UI.alert) await window.UI.alert(j && j.error ? j.error : 'Tạo nhóm thất bại'); else alert(j && j.error ? j.error : 'Tạo nhóm thất bại');
+                    }
+                } catch (e) { console.error(e); if (window.UI && window.UI.alert) await window.UI.alert('Lỗi tạo nhóm'); else alert('Lỗi tạo nhóm'); }
+                confirm.disabled = false;
+            });
+        })();
     </script>
 </body>
 

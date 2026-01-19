@@ -7,7 +7,6 @@ export function initMessages({ socket } = {}) {
     const emojiPicker = document.getElementById('emoji-picker');
 
     function getDeleteBtn() { return document.getElementById('delete-convo-btn'); }
-
     const EMOJIS = ['😀', '😂', '😍', '👍', '🎉', '🔥', '🙏', '😢', '😎', '🤔', '😅', '👏', '💯', '🎁', '🥳'];
 
     function getFriendInfo(friendId) {
@@ -20,41 +19,65 @@ export function initMessages({ socket } = {}) {
         return { avatar, username };
     }
 
-    function setLastRead(friendId, count) { localStorage.setItem(`chat_last_read_${friendId}`, String(count || 0)); }
-    function getLastRead(friendId) { return parseInt(localStorage.getItem(`chat_last_read_${friendId}`) || '0', 10); }
+    function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // dedupe recent messages to avoid double-render
+    window.AVChat = window.AVChat || {};
+    if (!window.AVChat._recentMsgKeys) window.AVChat._recentMsgKeys = new Map(); // key -> timestamp
+    function makeMsgKey(obj) {
+        try {
+            const chatId = (obj.chat && obj.chat.id) || (window.AVChat.currentChat && window.AVChat.currentChat.id) || '';
+            const from = String(obj.from || '');
+            const text = String(obj.message || obj.content || '').slice(0, 140);
+            const ts = obj.createdAt ? String(new Date(obj.createdAt).getTime()) : '';
+            return `${chatId}::${from}::${text}::${ts}`;
+        } catch (e) { return Math.random().toString(36).slice(2); }
+    }
+    function isDuplicate(obj, windowMs = 2000) {
+        const k = makeMsgKey(obj);
+        const now = Date.now();
+        const prev = window.AVChat._recentMsgKeys.get(k);
+        if (prev && (now - prev) < windowMs) return true;
+        window.AVChat._recentMsgKeys.set(k, now);
+        // cleanup older keys periodically
+        setTimeout(() => { window.AVChat._recentMsgKeys.delete(k); }, 30000);
+        return false;
+    }
 
     function appendMessage(data) {
         if (!chatBox) return;
+        // unify incoming shape: server may send {message, from, isSelf, createdAt, chat}
+        const payload = Object.assign({}, data);
+        if (isDuplicate(payload)) return; // skip duplicate
         const div = document.createElement('div');
-        div.className = 'message' + (data.isSelf ? ' self' : '');
-        if (!data.isSelf) {
-            const { avatar, username } = getFriendInfo(data.from);
+        div.className = 'message' + (payload.isSelf ? ' self' : '');
+        const text = payload.message || payload.content || '';
+        if (!payload.isSelf) {
+            const { avatar, username } = getFriendInfo(payload.from);
             div.innerHTML = `
                 <div style="display:flex;align-items:flex-end;gap:8px;">
                     <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
                     <div>
-                        <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${username || ''}</div>
-                        <div>${escapeHtml(String(data.message || ''))}</div>
+                        <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${escapeHtml(username || '')}</div>
+                        <div>${escapeHtml(String(text || ''))}</div>
                     </div>
                 </div>`;
         } else {
-            div.textContent = data.message;
+            div.textContent = String(text || '');
         }
         chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
 
-        window.AVChat = window.AVChat || {};
         window.AVChat.lastMessages = window.AVChat.lastMessages || [];
-        try {
-            window.AVChat.lastMessages.push({
-                content: data.message,
-                isSelf: !!data.isSelf,
-                from: data.from != null ? String(data.from) : (data.isSelf ? String(window.userId) : null),
-                createdAt: data.createdAt || new Date()
-            });
-            const MAX_STORE = 200;
-            if (window.AVChat.lastMessages.length > MAX_STORE) window.AVChat.lastMessages = window.AVChat.lastMessages.slice(-MAX_STORE);
-        } catch (e) { /* noop */ }
+        window.AVChat.lastMessages.push({
+            content: text,
+            isSelf: !!payload.isSelf,
+            from: payload.from != null ? String(payload.from) : null,
+            createdAt: payload.createdAt || new Date()
+        });
+        if (window.AVChat.lastMessages.length > 200) window.AVChat.lastMessages = window.AVChat.lastMessages.slice(-200);
     }
 
     function renderMessages(messages = []) {
@@ -68,32 +91,11 @@ export function initMessages({ socket } = {}) {
             return;
         }
         messages.forEach(msg => {
-            const div = document.createElement('div');
-            div.className = 'message' + (msg.isSelf ? ' self' : '');
-            if (!msg.isSelf) {
-                const { avatar, username } = getFriendInfo(String(msg.from));
-                div.innerHTML = `
-                    <div style="display:flex;align-items:flex-end;gap:8px;">
-                        <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
-                        <div>
-                            <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${username || ''}</div>
-                            <div>${escapeHtml(String(msg.content || ''))}</div>
-                        </div>
-                    </div>`;
-            } else {
-                div.textContent = msg.content;
-            }
-            chatBox.appendChild(div);
+            // reuse appendMessage but adapt shape
+            appendMessage({ message: msg.content, from: msg.from, isSelf: !!msg.isSelf, createdAt: msg.createdAt, chat: { id: (window.AVChat.currentChat && window.AVChat.currentChat.id) || '' } });
         });
         chatBox.scrollTop = chatBox.scrollHeight;
-
-        window.AVChat = window.AVChat || {};
-        window.AVChat.lastMessages = (messages || []).map(m => ({
-            content: m.content,
-            isSelf: !!m.isSelf,
-            from: m.from != null ? String(m.from) : null,
-            createdAt: m.createdAt || null
-        })).slice(-200);
+        window.AVChat.lastMessages = (messages || []).map(m => ({ content: m.content, isSelf: !!m.isSelf, from: m.from != null ? String(m.from) : null, createdAt: m.createdAt || null })).slice(-200);
     }
 
     function setSendEnabled(enabled) {
@@ -110,20 +112,17 @@ export function initMessages({ socket } = {}) {
         chatBox.innerHTML = '';
         chatBox.appendChild(el);
     }
-    function hideLoading() {
-        const el = document.getElementById('messages-loading');
-        if (el && el.parentNode) el.parentNode.removeChild(el);
-    }
+    function hideLoading() { const el = document.getElementById('messages-loading'); if (el && el.parentNode) el.parentNode.removeChild(el); }
 
     // hide delete by default
-    const deleteBtn = getDeleteBtn();
-    if (deleteBtn) { deleteBtn.style.display = 'none'; deleteBtn.dataset.chatId = ''; deleteBtn.dataset.chatType = ''; }
+    const dbtn = getDeleteBtn();
+    if (dbtn) { dbtn.style.display = 'none'; dbtn.dataset.chatId = ''; dbtn.dataset.chatType = ''; }
 
     async function loadMessages(chatType, chatId) {
         if (!chatType || !chatId) {
             setSendEnabled(false);
-            const dbtn = getDeleteBtn();
-            if (dbtn) { dbtn.style.display = 'none'; dbtn.dataset.chatId = ''; dbtn.dataset.chatType = ''; }
+            const dd = getDeleteBtn();
+            if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             return;
         }
         setSendEnabled(false);
@@ -136,18 +135,18 @@ export function initMessages({ socket } = {}) {
             renderMessages(data.messages || []);
             window.AVChat = window.AVChat || {};
             window.AVChat.lastMessages = data.messages || [];
-            setLastRead(chatId, String((data.messages || []).length));
             setSendEnabled(true);
             if (input) input.focus();
 
-            // ensure delete button shown for this chat (use getter)
-            const dbtn = getDeleteBtn();
-            if (dbtn) { dbtn.style.display = 'block'; dbtn.dataset.chatId = chatId; dbtn.dataset.chatType = chatType; }
+            // show delete button
+            const dd = getDeleteBtn();
+            if (dd) { dd.style.display = 'inline-flex'; dd.dataset.chatId = chatId; dd.dataset.chatType = chatType; }
 
-            // NEW: notify other scripts/UI that conversation opened
-            try {
-                window.dispatchEvent(new CustomEvent('conversation-opened', { detail: { chatType, chatId } }));
-            } catch (e) { /* noop for older browsers */ }
+            // join group room if group
+            if (chatType === 'group' && socket && socket.emit) socket.emit('join-group', chatId);
+
+            // notify other UI that conversation opened
+            try { window.dispatchEvent(new CustomEvent('conversation-opened', { detail: { chatType, chatId } })); } catch (e) { }
         } catch (err) {
             console.error('loadMessages error', err);
             hideLoading();
@@ -155,22 +154,13 @@ export function initMessages({ socket } = {}) {
         }
     }
 
-    // expose loader
+    // expose
     window.AVChat = window.AVChat || {};
     window.AVChat.loadMessages = loadMessages;
     window.AVChat.currentChat = window.AVChat.currentChat || null;
+    window.AVChat.showDeleteFor = (t, id) => { const dd = getDeleteBtn(); if (!dd) return; dd.dataset.chatType = t; dd.dataset.chatId = id; dd.style.display = 'inline-flex'; };
 
-    // expose showDeleteFor so other scripts can request the delete button to appear
-    function showDeleteFor(chatType, chatId) {
-        const dbtn = getDeleteBtn();
-        if (!dbtn) return;
-        dbtn.dataset.chatType = String(chatType || '');
-        dbtn.dataset.chatId = String(chatId || '');
-        dbtn.style.display = 'inline-flex';
-    }
-    window.AVChat.showDeleteFor = showDeleteFor;
-
-    // friends list click (delegation)
+    // friends click
     const friendsList = document.getElementById('friends');
     if (friendsList) {
         friendsList.addEventListener('click', async (e) => {
@@ -178,22 +168,29 @@ export function initMessages({ socket } = {}) {
             if (!item) return;
             document.querySelectorAll('.chat-item.friend-profile.active').forEach(n => n.classList.remove('active'));
             item.classList.add('active');
-
             const chatId = item.dataset.id;
             window.AVChat.currentChat = { type: 'friend', id: chatId };
-
-            const placeholder = document.getElementById('chat-placeholder');
-            if (placeholder) placeholder.style.display = 'none';
-
+            const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'none';
             await loadMessages('friend', chatId);
-
-            const badge = item.querySelector('.unread-badge');
-            if (badge) badge.style.display = 'none';
-
+            const badge = item.querySelector('.unread-badge'); if (badge) badge.style.display = 'none';
             if (window.AVChat.pendingMessages) delete window.AVChat.pendingMessages[chatId];
+            window.AVChat.showDeleteFor('friend', chatId);
+        });
+    }
 
-            // also ensure delete button visible even if other script triggered selection
-            showDeleteFor('friend', chatId);
+    // groups click
+    const groupsList = document.getElementById('groups');
+    if (groupsList) {
+        groupsList.addEventListener('click', async (e) => {
+            const item = e.target.closest('.chat-item[data-type="group"]');
+            if (!item) return;
+            document.querySelectorAll('.chat-item.active').forEach(n => n.classList.remove('active'));
+            item.classList.add('active');
+            const chatId = item.dataset.id;
+            window.AVChat.currentChat = { type: 'group', id: chatId };
+            const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'none';
+            await loadMessages('group', chatId);
+            window.AVChat.showDeleteFor('group', chatId);
         });
     }
 
@@ -201,14 +198,14 @@ export function initMessages({ socket } = {}) {
     if (form) {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const active = document.querySelector('.chat-item.friend-profile.active');
+            const active = document.querySelector('.chat-item.active');
             if (!active) {
-                if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert('Chọn bạn để gửi tin nhắn');
-                else alert('Chọn bạn để gửi tin nhắn');
+                if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert('Chọn bạn hoặc nhóm để gửi tin nhắn');
+                else alert('Chọn bạn hoặc nhóm để gửi tin nhắn');
                 return;
             }
             const chatId = active.dataset.id;
-            const chatType = active.dataset.type || 'friend';
+            const chatType = active.dataset.type || (window.AVChat.currentChat && window.AVChat.currentChat.type) || 'friend';
             const text = input.value && input.value.trim();
             if (!text) return;
             if (sendBtn) sendBtn.disabled = true;
@@ -221,11 +218,12 @@ export function initMessages({ socket } = {}) {
                 });
                 if (resp.status === 401) return window.location.href = '/login';
                 const result = await resp.json();
-                if (result.success) {
+                if (result && result.success) {
                     input.value = '';
+                    // rely on server emit to update UI; dedupe will ignore duplicates if any
                 } else {
-                    if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert(result.error || 'Không gửi được tin nhắn');
-                    else alert(result.error || 'Không gửi được tin nhắn');
+                    if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert(result && result.error ? result.error : 'Không gửi được tin nhắn');
+                    else alert(result && result.error ? result.error : 'Không gửi được tin nhắn');
                 }
             } catch (err) {
                 console.error('send error', err);
@@ -240,18 +238,23 @@ export function initMessages({ socket } = {}) {
     // realtime incoming
     if (socket) {
         socket.on('chat message', (data) => {
-            const active = document.querySelector('.chat-item.friend-profile.active');
+            if (!data || !data.chat) return;
+            // append only if conversation matches or show badge otherwise
+            const active = document.querySelector('.chat-item.active');
+            const activeType = active ? (active.dataset.type || (active.classList.contains('friend-profile') ? 'friend' : 'group')) : null;
             const activeId = active ? String(active.dataset.id) : null;
-            const fromId = String(data.from);
-            const chatMsgId = String(data.chat && data.chat.id);
+            const chatType = data.chat && data.chat.type;
+            const chatId = String(data.chat && data.chat.id);
 
-            if (activeId && ((data.isSelf && chatMsgId === activeId) || (!data.isSelf && fromId === activeId))) {
-                appendMessage({ isSelf: data.isSelf, from: data.from, message: data.message, createdAt: data.createdAt });
-                const count = chatBox.children.length;
-                setLastRead(activeId, count);
+            // unify shape for appendMessage
+            const payload = { message: data.message, from: data.from, isSelf: !!data.isSelf, createdAt: data.createdAt, chat: data.chat };
+
+            if (activeType && activeId && String(activeType) === String(chatType) && String(activeId) === String(chatId)) {
+                appendMessage(payload);
             } else {
-                const friendId = data.isSelf ? chatMsgId : fromId;
-                const item = document.querySelector(`.chat-item.friend-profile[data-id="${friendId}"]`);
+                // show badge on sidebar (for friend or group)
+                const selector = chatType === 'friend' ? `.chat-item.friend-profile[data-id="${String(data.from)}"]` : `.chat-item[data-type="group"][data-id="${chatId}"]`;
+                const item = document.querySelector(selector);
                 if (item) {
                     let badge = item.querySelector('.unread-badge');
                     if (!badge) {
@@ -272,6 +275,7 @@ export function initMessages({ socket } = {}) {
         });
     }
 
+    // Emoji picker
     function renderEmojiPicker() {
         if (!emojiPicker) return;
         emojiPicker.innerHTML = '';
@@ -291,7 +295,6 @@ export function initMessages({ socket } = {}) {
                     const pos = start + e.length;
                     input.setSelectionRange(pos, pos);
                     input.focus();
-                    if (sendBtn) sendBtn.disabled = false;
                 }
             };
             emojiPicker.appendChild(span);
@@ -327,77 +330,10 @@ export function initMessages({ socket } = {}) {
 
     if (emojiBtn) emojiBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
 
-    // AI suggestion modal (uses fetch /api/ai/suggest)
-    async function requestAISuggestion() {
-        const active = document.querySelector('.chat-item.friend-profile.active');
-        if (!active) {
-            if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert('Chọn bạn để lấy gợi ý AI');
-            else alert('Chọn bạn để lấy gợi ý AI');
-            return;
-        }
-        const msgs = window.AVChat && window.AVChat.lastMessages ? window.AVChat.lastMessages : [];
-        const lastOther = [...msgs].reverse().find(m => !m.isSelf);
-        if (!lastOther || !lastOther.content) {
-            if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert('Không có tin nhắn của đối phương để gợi ý.');
-            else alert('Không có tin nhắn của đối phương để gợi ý.');
-            return;
-        }
-        const lastText = String(lastOther.content).trim();
-        const chatId = active.dataset.id;
-        const chatType = active.dataset.type || 'friend';
+    // AI suggestion button wiring (if global function exists)
+    const aiBtn = document.getElementById('ai-btn');
+    if (aiBtn) aiBtn.addEventListener('click', (e) => { e.stopPropagation(); if (typeof window.requestAISuggestion === 'function') window.requestAISuggestion(); });
 
-        const overlay = document.createElement('div');
-        overlay.className = 'friend-request-popup';
-        overlay.innerHTML = `<div class="friend-request-modal" style="min-width:320px;">
-            <div style="font-weight:700;color:#4f8cff;margin-bottom:10px;">AI gợi ý (1 câu)</div>
-            <div id="ai-suggestion-text" style="white-space:pre-wrap;background:#0d1114;padding:12px;border-radius:8px;color:#e6eef8;min-height:48px;">Đang tạo gợi ý...</div>
-            <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
-                <button class="btn" id="ai-insert-btn" disabled>Chèn</button>
-                <button class="btn" id="ai-close-btn" style="background:#ef4444;">Đóng</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
-        const textEl = overlay.querySelector('#ai-suggestion-text');
-        const insertBtn = overlay.querySelector('#ai-insert-btn');
-        const closeBtn = overlay.querySelector('#ai-close-btn');
-        closeBtn.onclick = () => overlay.remove();
-        insertBtn.onclick = () => {
-            if (input) input.value = textEl.textContent || '';
-            overlay.remove();
-            if (input) input.focus();
-        };
-
-        const aiBtn = document.getElementById('ai-btn');
-        if (aiBtn) aiBtn.disabled = true;
-        try {
-            const r = await fetch('/api/ai/suggest', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({ prompt: lastText })
-            });
-            const j = await r.json();
-            if (j && j.success && j.result) {
-                textEl.textContent = j.result;
-                insertBtn.disabled = false;
-            } else {
-                textEl.textContent = j && j.error ? j.error : 'AI không trả về gợi ý.';
-            }
-        } catch (e) {
-            console.error('AI request failed', e);
-            textEl.textContent = 'Lỗi kết nối AI.';
-        } finally {
-            if (aiBtn) aiBtn.disabled = false;
-        }
-    }
-
-    if (typeof document !== 'undefined') {
-        const aiBtn = document.getElementById('ai-btn');
-        if (aiBtn) aiBtn.addEventListener('click', (e) => { e.stopPropagation(); requestAISuggestion(); });
-    }
-
-    // utility: simple HTML escape
-    function escapeHtml(str) {
-        return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    }
+    // expose small helpers
+    return { loadMessages, appendMessage, renderMessages };
 }

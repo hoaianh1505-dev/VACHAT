@@ -39,8 +39,8 @@ exports.createMessage = async ({ chatType, chatId, fromId, toId, content, io } =
         content: encrypted
     });
 
-    // optional realtime emit nếu có io
-    if (io && io.userSocketMap) {
+    // realtime emit nếu có io
+    if (io) {
         const plain = (() => { try { return decryptMessage(encrypted); } catch (e) { return '[unable to decrypt]'; } })();
         const payload = {
             chat: { type: chatType, id: String(chatId), conversationId: convId },
@@ -51,16 +51,30 @@ exports.createMessage = async ({ chatType, chatId, fromId, toId, content, io } =
             conversationId: convId
         };
         try {
-            // sender
-            if (io.userSocketMap[String(fromId)]) {
-                io.to(io.userSocketMap[String(fromId)]).emit('chat message', Object.assign({}, payload, { isSelf: true }));
-            }
-            // recipient
-            if (chatType === 'friend' && io.userSocketMap[String(chatId)]) {
-                io.to(io.userSocketMap[String(chatId)]).emit('chat message', Object.assign({}, payload, { isSelf: false }));
+            // Use single emission path: prefer io.emitToUser (central helper), else fallback to userSocketMap lookups.
+            if (chatType === 'friend') {
+                if (typeof io.emitToUser === 'function') {
+                    io.emitToUser(String(fromId), 'chat message', Object.assign({}, payload, { isSelf: true }));
+                    io.emitToUser(String(chatId), 'chat message', Object.assign({}, payload, { isSelf: false }));
+                } else if (io.userSocketMap) {
+                    const sidFrom = io.userSocketMap[String(fromId)];
+                    const sidTo = io.userSocketMap[String(chatId)];
+                    if (sidFrom) io.to(sidFrom).emit('chat message', Object.assign({}, payload, { isSelf: true }));
+                    if (sidTo) io.to(sidTo).emit('chat message', Object.assign({}, payload, { isSelf: false }));
+                }
+            } else if (chatType === 'group') {
+                // sender: try emitToUser/fallback once
+                if (typeof io.emitToUser === 'function') {
+                    io.emitToUser(String(fromId), 'chat message', Object.assign({}, payload, { isSelf: true }));
+                } else if (io.userSocketMap && io.userSocketMap[String(fromId)]) {
+                    io.to(io.userSocketMap[String(fromId)]).emit('chat message', Object.assign({}, payload, { isSelf: true }));
+                }
+                // broadcast to group room (single broadcast)
+                if (io && typeof io.to === 'function') {
+                    io.to(`group_${String(chatId)}`).emit('chat message', Object.assign({}, payload, { isSelf: false }));
+                }
             }
         } catch (e) {
-            // noop: fail emit doesn't break creation
             console.warn('messageService emit failed', e);
         }
     }
@@ -71,18 +85,17 @@ exports.createMessage = async ({ chatType, chatId, fromId, toId, content, io } =
 exports.getMessages = async ({ userId, chatType, chatId } = {}) => {
     if (!userId || !chatType || !chatId) return [];
     const convId = [String(userId), String(chatId)].sort().join('_');
-    let query = { chatType, conversationId: convId };
-    if (chatType === 'friend') {
-        const legacyQuery = {
-            chatType,
-            $or: [
-                { chatId, from: userId, to: chatId },
-                { chatId, from: chatId, to: userId }
-            ]
-        };
-        query = { $or: [{ chatType, conversationId: convId }, legacyQuery] };
-    }
-    const messages = await Message.find(query).sort({ createdAt: 1 });
+
+    const ObjectId = mongoose.Types.ObjectId;
+    // allow either conversationId match (legacy) or explicit chatType+chatId match
+    const q = {
+        $or: [
+            { conversationId: convId },
+            { chatType, chatId: new ObjectId(chatId) }
+        ]
+    };
+
+    const messages = await Message.find(q).sort({ createdAt: 1 });
 
     // mark read
     const unreadIds = messages.filter(m => !m.readBy || !m.readBy.includes(userId)).map(m => m._id);
@@ -154,19 +167,20 @@ exports.deleteConversation = async ({ userId, chatType, chatId, io } = {}) => {
 
     try {
         const res = await Message.deleteMany(q);
-        // emit realtime notification to participants (best-effort)
+        // emit realtime notification to participants (best-effort) - avoid double emit
         try {
             if (io && typeof io.emitToUser === 'function') {
-                // notify requester
                 io.emitToUser(userId, 'conversation-deleted', { chatType, chatId });
-                // if friend chat, notify other participant
                 if (chatType === 'friend') io.emitToUser(String(chatId), 'conversation-deleted', { chatType, chatId });
-                // groups: broadcast to group room
-                if (chatType === 'group' && io.to) io.to(`group_${chatId}`).emit('conversation-deleted', { chatType, chatId });
+                if (chatType === 'group' && io && typeof io.to === 'function') io.to(`group_${chatId}`).emit('conversation-deleted', { chatType, chatId });
             } else if (io && io.userSocketMap) {
-                if (io.userSocketMap[String(userId)]) io.to(io.userSocketMap[String(userId)]).emit('conversation-deleted', { chatType, chatId });
-                if (chatType === 'friend' && io.userSocketMap[String(chatId)]) io.to(io.userSocketMap[String(chatId)]).emit('conversation-deleted', { chatType, chatId });
-                if (chatType === 'group' && io.to) io.to(`group_${chatId}`).emit('conversation-deleted', { chatType, chatId });
+                const sidReq = io.userSocketMap[String(userId)];
+                if (sidReq) io.to(sidReq).emit('conversation-deleted', { chatType, chatId });
+                if (chatType === 'friend') {
+                    const sidOther = io.userSocketMap[String(chatId)];
+                    if (sidOther) io.to(sidOther).emit('conversation-deleted', { chatType, chatId });
+                }
+                if (chatType === 'group' && io && typeof io.to === 'function') io.to(`group_${chatId}`).emit('conversation-deleted', { chatType, chatId });
             }
         } catch (e) { console.warn('emit conversation-deleted failed', e); }
         return { deletedCount: res.deletedCount || 0 };
