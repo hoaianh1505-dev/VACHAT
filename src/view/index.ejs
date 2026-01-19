@@ -1,16 +1,168 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="vi">
 
 <head>
-    <title>AVChat - Welcome</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>AVChat — Welcome</title>
+    <style>
+        :root {
+            --bg-0: #07121a;
+            --bg-1: #0b1620;
+            --accent: #4f8cff;
+            /* primary app blue */
+            --accent-2: #2563eb;
+            /* darker blue */
+            --gloss: rgba(255, 255, 255, 0.12);
+            --muted: #bcd4ff;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+            color: #e8f0ff;
+            display: grid;
+            place-items: center
+        }
+
+        .wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px
+        }
+
+        /* Circular CTA in app tone with gloss and ring */
+        .cta {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 2px solid rgba(79, 140, 255, 0.14);
+            background:
+                radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.06), transparent 20%),
+                linear-gradient(180deg, var(--accent), var(--accent-2));
+            color: #fff;
+            font-weight: 900;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 60px rgba(79, 140, 255, 0.14), inset 0 -6px 20px rgba(0, 0, 0, 0.18);
+            position: relative;
+            cursor: pointer;
+            outline: none;
+            transition: transform .18s ease, box-shadow .18s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cta::after {
+            content: '';
+            position: absolute;
+            left: 12%;
+            top: 8%;
+            width: 76%;
+            height: 48%;
+            border-radius: 50%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
+            mix-blend-mode: overlay;
+            pointer-events: none;
+            filter: blur(8px);
+            opacity: 0.95;
+        }
+
+        .cta .inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px
+        }
+
+        .cta .icon {
+            font-size: 2.2rem;
+            display: block
+        }
+
+        .cta .label {
+            font-size: .98rem;
+            color: #041224
+        }
+
+        .cta:hover {
+            transform: translateY(-6px) scale(1.03);
+            box-shadow: 0 36px 120px rgba(79, 140, 255, 0.22)
+        }
+
+        .cta:active {
+            transform: translateY(-2px) scale(.99)
+        }
+
+        .cta:focus-visible {
+            box-shadow: 0 0 0 6px rgba(79, 140, 255, 0.14), 0 36px 120px rgba(79, 140, 255, 0.18)
+        }
+
+        .cta.pulse {
+            animation: softPulse 3.2s ease-in-out infinite
+        }
+
+        @keyframes softPulse {
+            0% {
+                transform: scale(1)
+            }
+
+            50% {
+                transform: scale(1.02)
+            }
+
+            100% {
+                transform: scale(1)
+            }
+        }
+
+        .note {
+            color: var(--muted);
+            font-size: .95rem
+        }
+
+        @media (max-width: 420px) {
+            .cta {
+                width: 150px;
+                height: 150px
+            }
+
+            .cta .icon {
+                font-size: 1.8rem
+            }
+        }
+    </style>
 </head>
 
 <body>
-    <div class="auth-container">
-        <h1>Welcome to AVChat</h1>
-        <a href="/login" class="btn">Getting Started</a>
+    <div class="wrap" role="main" aria-label="Landing">
+        <button id="getStarted" class="cta pulse" aria-label="Get Started"
+            data-target="<%= (typeof user !== 'undefined' && user) ? '/chat' : '/login' %>">
+            <span class="inner">
+                <span class="icon">💬</span>
+                <span class="label">Get Started</span>
+            </span>
+        </button>
+        <div class="note">Nhanh — trực quan. Bấm để bắt đầu.</div>
     </div>
+
+    <script>
+        (function () {
+            const btn = document.getElementById('getStarted');
+            if (!btn) return;
+            btn.addEventListener('click', () => {
+                const url = btn.getAttribute('data-target') || '/login';
+                location.href = url;
+            });
+            btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); } });
+        })();
+    </script>
 </body>
 
 </html>
