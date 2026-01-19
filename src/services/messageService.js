@@ -42,7 +42,7 @@ exports.createMessage = async ({ chatType, chatId, fromId, toId, content, io } =
     // realtime emit nếu có io
     if (io) {
         const plain = (() => { try { return decryptMessage(encrypted); } catch (e) { return '[unable to decrypt]'; } })();
-        const payload = {
+        const basePayload = {
             chat: { type: chatType, id: String(chatId), conversationId: convId },
             message: plain,
             from: String(fromId),
@@ -53,25 +53,31 @@ exports.createMessage = async ({ chatType, chatId, fromId, toId, content, io } =
         try {
             // Use single emission path: prefer io.emitToUser (central helper), else fallback to userSocketMap lookups.
             if (chatType === 'friend') {
+                const payloadForSender = Object.assign({}, basePayload, { isSelf: true, chat: { type: 'friend', id: String(chatId), conversationId: convId } });
+                const payloadForReceiver = Object.assign({}, basePayload, { isSelf: false, chat: { type: 'friend', id: String(fromId), conversationId: convId } });
+
                 if (typeof io.emitToUser === 'function') {
-                    io.emitToUser(String(fromId), 'chat message', Object.assign({}, payload, { isSelf: true }));
-                    io.emitToUser(String(chatId), 'chat message', Object.assign({}, payload, { isSelf: false }));
+                    io.emitToUser(String(fromId), 'chat message', payloadForSender);
+                    io.emitToUser(String(chatId), 'chat message', payloadForReceiver);
                 } else if (io.userSocketMap) {
                     const sidFrom = io.userSocketMap[String(fromId)];
                     const sidTo = io.userSocketMap[String(chatId)];
-                    if (sidFrom) io.to(sidFrom).emit('chat message', Object.assign({}, payload, { isSelf: true }));
-                    if (sidTo) io.to(sidTo).emit('chat message', Object.assign({}, payload, { isSelf: false }));
+                    if (sidFrom) io.to(sidFrom).emit('chat message', payloadForSender);
+                    if (sidTo) io.to(sidTo).emit('chat message', payloadForReceiver);
                 }
             } else if (chatType === 'group') {
+                const payloadForSender = Object.assign({}, basePayload, { isSelf: true });
+                const payloadForGroup = Object.assign({}, basePayload, { isSelf: false });
+
                 // sender: try emitToUser/fallback once
                 if (typeof io.emitToUser === 'function') {
-                    io.emitToUser(String(fromId), 'chat message', Object.assign({}, payload, { isSelf: true }));
+                    io.emitToUser(String(fromId), 'chat message', payloadForSender);
                 } else if (io.userSocketMap && io.userSocketMap[String(fromId)]) {
-                    io.to(io.userSocketMap[String(fromId)]).emit('chat message', Object.assign({}, payload, { isSelf: true }));
+                    io.to(io.userSocketMap[String(fromId)]).emit('chat message', payloadForSender);
                 }
                 // broadcast to group room (single broadcast)
                 if (io && typeof io.to === 'function') {
-                    io.to(`group_${String(chatId)}`).emit('chat message', Object.assign({}, payload, { isSelf: false }));
+                    io.to(`group_${String(chatId)}`).emit('chat message', payloadForGroup);
                 }
             }
         } catch (e) {
