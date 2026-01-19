@@ -9,3 +9,14 @@ exports.isObjectId = (id) => {
         return false;
     }
 };
+
+exports.isStrongPassword = (p) => {
+    // minimal: length >= 6
+    if (!p) return false;
+    return String(p).length >= 6;
+};
+
+exports.sanitizeUsername = (u) => {
+    if (!u) return '';
+    return String(u || '').trim().replace(/\s+/g, ' ').slice(0, 32);
+};

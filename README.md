@@ -1,67 +1,75 @@
-# AVChat — Quick deploy notes
+# AVChat
 
-- Realtime (Socket.IO) requires a long‑running server. Vercel serverless DOES NOT support persistent WebSocket servers.
-- Options:
-  1. Deploy backend (Express + Socket.IO) to Render/Railway/Fly/VM and set SOCKET_URL to that URL in Vercel env. Frontend (Vercel) will connect to SOCKET_URL.
-  2. Keep frontend & backend together on a host that supports WebSocket (Render/Railway) — simplest.
-  3. Or replace realtime with a managed realtime provider (Pusher/Ably/Supabase/Firebase) if you must keep backend serverless.
+Ứng dụng chat nhẹ (Express + Socket.IO + MongoDB). Hỗ trợ danh sách bạn bè, nhóm, lưu lịch sử tin nhắn và nhắn tin realtime. Một số tính năng AI có trong mã nhưng hiện đã bị vô hiệu hoá trên nhánh này.
 
-Env vars to set on hosting (backend):
-- MONGO_URI, SESSION_SECRET, NODE_ENV=production
+Mục lục
+- Giới thiệu
+- Yêu cầu
+- Cài đặt & chạy
+- Biến môi trường
+- Ghi chú bảo mật
+- Cấu trúc dự án
+- Khắc phục sự cố nhanh
 
-Env vars to set on Vercel (frontend):
-- SOCKET_URL=https://your-backend.example.com
+Giới thiệu
+---------
+AVChat là ví dụ minh hoạ hệ thống chat client–server: server dùng Express + Socket.IO, client là các view EJS với JS phía client (fetch + socket). Tin nhắn được lưu trong MongoDB (mã hoá AES).
 
-After deploy:
-- Ensure cookie sameSite/secure and CORS configured on backend when frontend and backend are different origins.
-- Test with two browsers (incognito) connecting to frontend; messages should appear realtime.
+Yêu cầu
+-------
+- Node.js >= 18
+- npm
+- MongoDB (Atlas hoặc self-hosted)
 
-- Cài phụ thuộc AI (nếu dùng Node <18 hoặc muốn SDK OpenAI):
-  - npm install node-fetch@2 openai
-- Nếu Node >=18 bạn có thể bỏ qua node-fetch (global fetch đã có sẵn).
+Cài đặt & chạy
+--------------
+1. Cài phụ thuộc:
+   npm install
 
-Local AI fallback / forced mode
-- Nếu muốn luôn dùng gợi ý cục bộ (không cần API key), đặt biến môi trường:
-  - FORCE_LOCAL_AI=1  (hoặc FORCE_LOCAL_AI=true)
-- Khi bật, server sẽ trả gợi ý ngắn 1 câu bằng tiếng Việt ngay cả khi không có key hoặc khi provider báo hạn ngạch.
+2. Tạo file `.env` ở gốc dự án (không commit file này). Ví dụ tối thiểu:
+   MONGO_URI=your_mongo_uri
+   PORT=1505
+   SESSION_SECRET=your_session_secret
 
-Using your Gemini key (quick)
-- Put your key into .env as:
-  - GEMINI_API_KEY=your_key_here
-- Restart server (npm run dev).
-- Test provider from your browser/Postman (must be authenticated) or curl:
-  - POST http://localhost:PORT/api/ai/debug
-  - Body JSON: { "sample": "Hôm nay ngày mấy" }
-- Server will return raw Gemini response or an error message (quota/auth) to help debug.
+3. Chạy môi trường phát triển:
+   npm run dev
 
-If you see "Request had invalid authentication credentials" or "Requested entity was not found":
-- Preferred fix: configure a Service Account for server-to-server auth (recommended when API key fails or is restricted).
+Biến môi trường chính
+----------------------
+- MONGO_URI — chuỗi kết nối MongoDB (bắt buộc để dùng DB).
+- PORT — cổng server (mặc định 3000/1505).
+- SESSION_SECRET — secret cho express-session.
+- CHAT_SECRET — khóa AES cho mã hóa tin nhắn (nên đặt trong prod).
+- GEMINI_API_KEY / SERVICE_ACCOUNT_JSON / GOOGLE_APPLICATION_CREDENTIALS — cấu hình AI (không bắt buộc; AI có thể bị vô hiệu hóa).
 
-Quick steps (Service Account)
-1. In Google Cloud Console → Select your Project.
-2. APIs & Services → Enable "Generative Language API".
-3. IAM & Admin → Service Accounts → Create Service Account.
-4. Grant it a role with API access (e.g. Editor or specific roles for Generative AI).
-5. Create a JSON key for the service account and download it.
+Ghi chú bảo mật
+---------------
+- KHÔNG commit file `.env` chứa secrets. Sử dụng secret manager cho production.
+- Nếu MONGO_URI không được cấu hình, app sẽ dùng in-memory session store (không an toàn cho production).
+- Ai features trong mã có thể bị tắt — README và server log sẽ thông báo.
 
-Configure server to use the key:
-- Option A (recommended): set env var pointing to file path:
-  - GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-- Option B: set raw JSON (if container) — be careful with secrets:
-  - SERVICE_ACCOUNT_JSON='{"type":"...","private_key":"...","client_email":"..."}'
+Cấu trúc dự án (chính)
+-----------------------
+- src/server.js — entrypoint
+- src/config — cấu hình env / db / socket
+- src/routes — các route (API dưới /api)
+- src/controllers — xử lý request
+- src/services — logic nghiệp vụ (auth, messages...)
+- src/models — Mongoose schemas
+- src/public — static (JS/CSS) và view (EJS)
+- src/socket — handlers cho Socket.IO
+- src/utils — helper
 
-Then restart server.
+Khắc phục sự cố nhanh
+---------------------
+- Lỗi liên quan Mongo / session store: kiểm tra MONGO_URI trong `.env`.
+- Lỗi đăng nhập/đăng ký: kiểm tra kết nối DB và biến môi trường.
+- Muốn bật lại AI: cung cấp GEMINI_API_KEY hoặc cấu hình Service Account và khôi phục aiService.
 
-Verify from app:
-- While server running, POST to:
-  - POST http://localhost:PORT/api/ai/debug
-  - Body: { "sample": "Hôm nay ngày mấy" }
-- Response field "attemptedWith" will show which auth method succeeded: "query", "api_key_header", or "service_account".
-- If service_account used, the debug result should be ok:true.
+Góp ý & đóng góp
+---------------
+Tạo branch mới, thực hiện thay đổi, mở pull request. Luôn giữ secrets ngoài VCS.
 
-If you cannot use a service account:
-- Ensure GEMINI_API_KEY is an API key created in the same project where Generative Language API is enabled.
-- Temporarily remove API key restrictions (IP/referrer) to test.
-
-Security note:
-- Do not expose keys to clients. Keep service account JSON or API key only on the backend.
+License
+-------
+MIT (tuỳ chỉnh nếu cần)

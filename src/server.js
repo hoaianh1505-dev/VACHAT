@@ -26,11 +26,28 @@ app.set('io', io); // Thêm dòng này
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Session store setup (use Mongo when configured, fallback to MemoryStore)
+let sessionStore;
+if (env.MONGO_URI) {
+    // try to create MongoStore; fall back to MemoryStore on failure
+    try {
+        sessionStore = MongoStore.create({ mongoUrl: env.MONGO_URI });
+        console.log('Session store: MongoDB');
+    } catch (e) {
+        console.warn('MongoStore.create failed, falling back to MemoryStore:', e.message || e);
+        sessionStore = new session.MemoryStore();
+    }
+} else {
+    console.warn('MONGO_URI not set — using in-memory session store (not for production)');
+    sessionStore = new session.MemoryStore();
+}
+
 app.use(session({
     secret: env.SESSION_SECRET || 'your_secret_key',
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({ mongoUrl: env.MONGO_URI }),
+    store: sessionStore,
     cookie: {
         secure: (process.env.NODE_ENV === 'production'), // https only in prod
         sameSite: 'lax' // allow sending cookie on same-site navigations/fetches
@@ -65,26 +82,15 @@ db.connect()
 const homeRoute = require('./routes/home');
 const loginRoute = require('./routes/login');
 const authRoute = require('./routes/auth');
-// new API routes
-const usersApiRoute = require('./routes/users');
-const messagesApiRoute = require('./routes/messages');
-const groupsApiRoute = require('./routes/groups');
-const friendsApiRoute = require('./routes/friends');
-const aiApiRoute = require('./routes/ai');
-
-const socketHandlers = require('./socket/socketHandlers');
-// socketHandlers(io); // <-- removed duplicate call (socketConfig already initialized handlers)
+// Mount single API root that aggregates subroutes
+const apiRouter = require('./routes/api');
 
 app.use('/', homeRoute);
 app.use('/', loginRoute);
 app.use('/auth', authRoute);
 
-// mount API routes under /api
-app.use('/api/users', usersApiRoute);
-app.use('/api/messages', messagesApiRoute);
-app.use('/api/groups', groupsApiRoute);
-app.use('/api/friends', friendsApiRoute);
-app.use('/api/ai', aiApiRoute);
+// mount API router under /api
+app.use('/api', apiRouter);
 
 // Thêm error handler cuối cùng
 app.use(middleware.errorHandler);

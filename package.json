@@ -1,23 +1,12 @@
 {
   "name": "avchat",
   "version": "1.0.0",
-  "description": "AVChat — Realtime chat app with AI suggestions",
-  "main": "index.js",
+  "description": "AVChat - chat app",
+  "main": "src/server.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/hoaianh1505-dev/VACHAT.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/hoaianh1505-dev/VACHAT/issues"
-  },
-  "homepage": "https://github.com/hoaianh1505-dev/VACHAT#readme",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "connect-mongo": "^6.0.0",
@@ -27,8 +16,9 @@
     "express-session": "^1.18.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.4",
-    "socket.io": "^4.8.3",
     "node-fetch": "^2.7.0",
+    "openai": "^6.16.0",
+    "socket.io": "^4.8.3",
     "google-auth-library": "^9.0.0"
   },
   "devDependencies": {

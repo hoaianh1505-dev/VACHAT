@@ -323,8 +323,5 @@ export function initMessages({ socket } = {}) {
 
     if (emojiBtn) emojiBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
 
-    const aiBtn = document.getElementById('ai-btn');
-    if (aiBtn) aiBtn.addEventListener('click', (e) => { e.stopPropagation(); if (typeof window.requestAISuggestion === 'function') window.requestAISuggestion(); });
-
     return { loadMessages, appendMessage, renderMessages };
 }

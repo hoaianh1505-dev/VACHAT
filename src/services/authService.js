@@ -1,7 +1,13 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 
 exports.register = async ({ username, email, password }) => {
+    if (mongoose.connection.readyState !== 1) {
+        const e = new Error('Database not connected — set MONGO_URI in .env and restart the server');
+        e.status = 500;
+        throw e;
+    }
     const hash = await bcrypt.hash(password, 10);
     const existUser = await User.findOne({ username });
     if (existUser) throw new Error('Username already exists');
@@ -11,6 +17,11 @@ exports.register = async ({ username, email, password }) => {
 };
 
 exports.login = async ({ email, password }) => {
+    if (mongoose.connection.readyState !== 1) {
+        const e = new Error('Database not connected — set MONGO_URI in .env and restart the server');
+        e.status = 500;
+        throw e;
+    }
     // find by email (login bằng email)
     const user = await User.findOne({ email: String(email || '').trim() });
     if (!user) throw new Error('Invalid credentials');
