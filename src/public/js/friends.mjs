@@ -13,7 +13,7 @@ export function initFriends({ socket } = {}) {
 
     async function doSearch(username) {
         if (!username) return;
-        const res = await fetch(`/search-user?username=${encodeURIComponent(username)}`, { method: 'GET', credentials: 'same-origin' });
+        const res = await fetch(`/api/friends/search-user?username=${encodeURIComponent(username)}`, { method: 'GET', credentials: 'same-origin' });
         if (res.status === 401) return window.location.href = '/login';
         return res.json();
     }
@@ -44,7 +44,7 @@ export function initFriends({ socket } = {}) {
                 const toId = addBtn.dataset.id;
                 addBtn.disabled = true;
                 try {
-                    const r = await fetch('/add-friend', {
+                    const r = await fetch('/api/friends/add-friend', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
@@ -64,7 +64,7 @@ export function initFriends({ socket } = {}) {
                 const toId = cancelBtn.dataset.id;
                 cancelBtn.disabled = true;
                 try {
-                    const r = await fetch('/cancel-friend-request', {
+                    const r = await fetch('/api/friends/cancel-friend-request', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
@@ -114,8 +114,7 @@ export function initFriends({ socket } = {}) {
 				</div>`;
             document.body.appendChild(popup);
             popup.querySelector('#accept-friend-btn').onclick = async () => {
-                // call accept API (reload handled by caller)
-                await fetch('/accept-friend-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ requestId: data.requestId }) }).catch(() => { });
+                await fetch('/api/friends/accept-friend-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ requestId: data.requestId }) }).catch(() => { });
                 popup.remove();
                 location.reload();
             };

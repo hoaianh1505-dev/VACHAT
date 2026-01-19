@@ -1,14 +1,16 @@
-const userService = require('../services/userService');
 const asyncHandler = require('../utils/asyncHandler');
-
-exports.getProfile = asyncHandler(async (req, res) => {
-    const userId = req.session.user && req.session.user._id;
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const user = await userService.getById(userId);
-    res.json({ ok: true, user });
-});
+const userService = require('../services/userService');
+const response = require('../utils/response');
 
 exports.list = asyncHandler(async (req, res) => {
+    // public simple user list
     const users = await userService.list();
-    res.json({ ok: true, users });
+    return response.ok(res, { users });
+});
+
+exports.getProfile = asyncHandler(async (req, res) => {
+    const sessionUser = req.session && req.session.user;
+    if (!sessionUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    const user = await userService.getById(sessionUser._id);
+    return response.ok(res, { user });
 });

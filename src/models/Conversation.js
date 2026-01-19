@@ -4,4 +4,8 @@ const ConversationSchema = new mongoose.Schema({
     lastMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
     updatedAt: { type: Date, default: Date.now }
 });
-module.exports = mongoose.model('Conversation', ConversationSchema);
+// Deprecated placeholder for Conversation model (kept to avoid accidental requires).
+module.exports = {
+    deprecated: true,
+    note: 'Conversation model deprecated — legacy schema placeholder.'
+};

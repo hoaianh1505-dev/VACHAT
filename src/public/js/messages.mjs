@@ -25,7 +25,7 @@ export function initMessages({ socket } = {}) {
 
     // dedupe recent messages to avoid double-render
     window.AVChat = window.AVChat || {};
-    if (!window.AVChat._recentMsgKeys) window.AVChat._recentMsgKeys = new Map(); // key -> timestamp
+    if (!window.AVChat._recentMsgKeys) window.AVChat._recentMsgKeys = new Map();
     function makeMsgKey(obj) {
         try {
             const chatId = (obj.chat && obj.chat.id) || (window.AVChat.currentChat && window.AVChat.currentChat.id) || '';
@@ -41,29 +41,27 @@ export function initMessages({ socket } = {}) {
         const prev = window.AVChat._recentMsgKeys.get(k);
         if (prev && (now - prev) < windowMs) return true;
         window.AVChat._recentMsgKeys.set(k, now);
-        // cleanup older keys periodically
         setTimeout(() => { window.AVChat._recentMsgKeys.delete(k); }, 30000);
         return false;
     }
 
     function appendMessage(data) {
         if (!chatBox) return;
-        // unify incoming shape: server may send {message, from, isSelf, createdAt, chat}
         const payload = Object.assign({}, data);
-        if (isDuplicate(payload)) return; // skip duplicate
+        if (isDuplicate(payload)) return;
         const div = document.createElement('div');
         div.className = 'message' + (payload.isSelf ? ' self' : '');
         const text = payload.message || payload.content || '';
         if (!payload.isSelf) {
             const { avatar, username } = getFriendInfo(payload.from);
             div.innerHTML = `
-                <div style="display:flex;align-items:flex-end;gap:8px;">
-                    <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
-                    <div>
-                        <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${escapeHtml(username || '')}</div>
-                        <div>${escapeHtml(String(text || ''))}</div>
-                    </div>
-                </div>`;
+				<div style="display:flex;align-items:flex-end;gap:8px;">
+					<img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
+					<div>
+						<div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${escapeHtml(username || '')}</div>
+						<div>${escapeHtml(String(text || ''))}</div>
+					</div>
+				</div>`;
         } else {
             div.textContent = String(text || '');
         }
@@ -91,7 +89,6 @@ export function initMessages({ socket } = {}) {
             return;
         }
         messages.forEach(msg => {
-            // reuse appendMessage but adapt shape
             appendMessage({ message: msg.content, from: msg.from, isSelf: !!msg.isSelf, createdAt: msg.createdAt, chat: { id: (window.AVChat.currentChat && window.AVChat.currentChat.id) || '' } });
         });
         chatBox.scrollTop = chatBox.scrollHeight;
@@ -128,7 +125,7 @@ export function initMessages({ socket } = {}) {
         setSendEnabled(false);
         showLoading();
         try {
-            const res = await fetch(`/messages?chatType=${encodeURIComponent(chatType)}&chatId=${encodeURIComponent(chatId)}`, { method: 'GET', credentials: 'same-origin' });
+            const res = await fetch(`/api/messages?chatType=${encodeURIComponent(chatType)}&chatId=${encodeURIComponent(chatId)}`, { method: 'GET', credentials: 'same-origin' });
             if (res.status === 401) return window.location.href = '/login';
             const data = await res.json();
             hideLoading();
@@ -210,7 +207,7 @@ export function initMessages({ socket } = {}) {
             if (!text) return;
             if (sendBtn) sendBtn.disabled = true;
             try {
-                const resp = await fetch('/send-message', {
+                const resp = await fetch('/api/messages/send-message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
@@ -220,7 +217,6 @@ export function initMessages({ socket } = {}) {
                 const result = await resp.json();
                 if (result && result.success) {
                     input.value = '';
-                    // rely on server emit to update UI; dedupe will ignore duplicates if any
                 } else {
                     if (window.UI && typeof window.UI.alert === 'function') await window.UI.alert(result && result.error ? result.error : 'Không gửi được tin nhắn');
                     else alert(result && result.error ? result.error : 'Không gửi được tin nhắn');
@@ -239,20 +235,17 @@ export function initMessages({ socket } = {}) {
     if (socket) {
         socket.on('chat message', (data) => {
             if (!data || !data.chat) return;
-            // append only if conversation matches or show badge otherwise
             const active = document.querySelector('.chat-item.active');
             const activeType = active ? (active.dataset.type || (active.classList.contains('friend-profile') ? 'friend' : 'group')) : null;
             const activeId = active ? String(active.dataset.id) : null;
             const chatType = data.chat && data.chat.type;
             const chatId = String(data.chat && data.chat.id);
 
-            // unify shape for appendMessage
             const payload = { message: data.message, from: data.from, isSelf: !!data.isSelf, createdAt: data.createdAt, chat: data.chat };
 
             if (activeType && activeId && String(activeType) === String(chatType) && String(activeId) === String(chatId)) {
                 appendMessage(payload);
             } else {
-                // show badge on sidebar (for friend or group)
                 const selector = chatType === 'friend' ? `.chat-item.friend-profile[data-id="${String(data.from)}"]` : `.chat-item[data-type="group"][data-id="${chatId}"]`;
                 const item = document.querySelector(selector);
                 if (item) {
@@ -330,10 +323,8 @@ export function initMessages({ socket } = {}) {
 
     if (emojiBtn) emojiBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
 
-    // AI suggestion button wiring (if global function exists)
     const aiBtn = document.getElementById('ai-btn');
     if (aiBtn) aiBtn.addEventListener('click', (e) => { e.stopPropagation(); if (typeof window.requestAISuggestion === 'function') window.requestAISuggestion(); });
 
-    // expose small helpers
     return { loadMessages, appendMessage, renderMessages };
 }

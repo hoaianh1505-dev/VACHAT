@@ -4,13 +4,17 @@ const errorHandler = require('./errorHandler');
 const auth = require('./auth');
 const validation = require('./validation');
 
-exports.requestLogger = (req, res, next) => {
-    // minimal request logging
-    logger.info(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${req.ip}`);
+// simple request logger middleware
+function requestLogger(req, res, next) {
+    const now = new Date().toISOString();
+    console.log(`[${now}] ${req.method} ${req.originalUrl}`);
     next();
-};
+}
 
-exports.cors = cors;
-exports.errorHandler = errorHandler;
-exports.auth = auth;
-exports.validation = validation;
+module.exports = {
+    requestLogger,
+    cors,
+    errorHandler,
+    auth,
+    validation
+};

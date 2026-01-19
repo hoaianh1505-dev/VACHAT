@@ -4,4 +4,8 @@ const FriendSchema = new mongoose.Schema({
     friend: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     createdAt: { type: Date, default: Date.now }
 });
-module.exports = mongoose.model('Friend', FriendSchema);
+// Deprecated placeholder for Friend model (prefer using User.friends array).
+module.exports = {
+    deprecated: true,
+    note: 'Friend model deprecated — use User.friends or FriendRequest.'
+};

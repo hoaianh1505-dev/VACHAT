@@ -6,4 +6,9 @@ const GroupMessageSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 });
-module.exports = mongoose.model('GroupMessage', GroupMessageSchema);
+// Deprecated: GroupMessage not used in current architecture.
+// Keep a minimal stub to avoid require() errors elsewhere.
+module.exports = {
+    deprecated: true,
+    note: 'GroupMessage model deprecated — messages stored in Message model (chatType: group).'
+};

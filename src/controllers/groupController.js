@@ -62,3 +62,22 @@ exports.removeMember = async (req, res) => {
     await User.findByIdAndUpdate(userId, { $pull: { groups: groupId } });
     res.json({ success: true });
 };
+
+// DELETE group (remove group entity, its messages and references)
+exports.delete = async (req, res) => {
+    const sessionUser = req.session && req.session.user;
+    if (!sessionUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    const { groupId } = req.body || {};
+    if (!groupId) return res.status(400).json({ success: false, error: 'Missing groupId' });
+
+    try {
+        const groupService = require('../services/groupService');
+        const io = req.app.get('io');
+        const result = await groupService.deleteGroup({ userId: String(sessionUser._id), groupId: String(groupId), io });
+        return res.json({ success: true, deleted: result.deletedCount || 0 });
+    } catch (e) {
+        console.error('delete group error', e);
+        const status = e && e.status ? e.status : 500;
+        return res.status(status).json({ success: false, error: e.message || 'Delete group failed' });
+    }
+};

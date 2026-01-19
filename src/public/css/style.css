@@ -735,6 +735,23 @@ a {
     margin-right: 8px;
 }
 
+/* small inline delete button for groups in sidebar */
+.delete-group-btn {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: background 0.12s, color 0.12s;
+}
+
+.delete-group-btn:hover {
+    background: rgba(239, 68, 68, 0.08);
+    color: #fff;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
     .chat-main {

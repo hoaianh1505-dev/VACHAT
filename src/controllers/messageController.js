@@ -1,45 +1,46 @@
-const mongoose = require('mongoose');
-const Message = require('../models/Message');
-const messageService = require('../services/messageService');
 const asyncHandler = require('../utils/asyncHandler');
+const messageService = require('../services/messageService');
+const response = require('../utils/response');
 
 exports.sendMessage = asyncHandler(async (req, res) => {
-    const userId = req.session.user && req.session.user._id;
-    const { chatType, chatId, message } = req.body;
-    if (!userId || !chatType || !chatId || !message) return res.json({ error: 'Thiếu thông tin' });
+    const sessionUser = req.session && req.session.user;
+    if (!sessionUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const { chatType, chatId, message } = req.body || {};
+    if (!chatType || !chatId || !message) return response.err(res, 'Missing fields', 400);
 
     const io = req.app.get('io');
     const msg = await messageService.createMessage({
         chatType,
         chatId,
-        fromId: userId,
+        fromId: String(sessionUser._id),
         toId: chatType === 'friend' ? chatId : undefined,
         content: message,
         io
     });
-    res.json({ success: true, message: msg });
+    return response.ok(res, { success: true, message: { id: String(msg._id) } });
 });
 
 exports.getMessages = asyncHandler(async (req, res) => {
-    const userId = req.session.user && req.session.user._id;
-    const { chatType, chatId } = req.query;
-    if (!userId || !chatType || !chatId) return res.json({ messages: [] });
-    const messages = await messageService.getMessages({ userId, chatType, chatId });
-    res.json({ messages });
+    const sessionUser = req.session && req.session.user;
+    if (!sessionUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const { chatType, chatId } = req.query || {};
+    if (!chatType || !chatId) return response.ok(res, { messages: [] });
+
+    const messages = await messageService.getMessages({ userId: String(sessionUser._id), chatType, chatId });
+    return response.ok(res, { messages });
 });
 
 exports.deleteConversation = asyncHandler(async (req, res) => {
-    const userId = req.session.user && req.session.user._id;
-    const { chatType, chatId } = req.body;
-    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
-    if (!chatType || !chatId) return res.status(400).json({ success: false, error: 'Thiếu thông tin' });
+    // IMPORTANT: only delete messages (conversation history), do NOT delete group entity here
+    const sessionUser = req.session && req.session.user;
+    if (!sessionUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
-    try {
-        const io = req.app.get('io');
-        const result = await messageService.deleteConversation({ userId: String(userId), chatType, chatId, io });
-        return res.json({ success: true, deleted: result.deletedCount || 0 });
-    } catch (e) {
-        console.error('deleteConversation error', e);
-        return res.status(500).json({ success: false, error: e.message || 'Xóa cuộc trò chuyện thất bại' });
-    }
+    const { chatType, chatId } = req.body || {};
+    if (!chatType || !chatId) return response.err(res, 'Missing fields', 400);
+
+    const io = req.app.get('io');
+    const result = await messageService.deleteConversation({ userId: String(sessionUser._id), chatType, chatId, io });
+    return response.ok(res, { success: true, deleted: result.deletedCount || 0 });
 });

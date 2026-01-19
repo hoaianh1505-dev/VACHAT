@@ -70,7 +70,11 @@
                     <ul id="groups">
                         <% (groups || []).forEach(group=> { %>
                             <li class="chat-item" data-type="group" data-id="<%= group._id %>">
-                                <%= group.name %>
+                                <span style="flex:1;">
+                                    <%= group.name %>
+                                </span>
+                                <button class="delete-group-btn" data-id="<%= group._id %>" title="Xóa lịch sử nhóm"
+                                    style="margin-left:8px;background:transparent;border:none;color:#ef4444;cursor:pointer;">🗑️</button>
                             </li>
                             <% }) %>
                     </ul>
@@ -110,7 +114,7 @@
         </div>
     </div>
 
-    <!-- thêm modal Tạo nhóm (ẩn) — moved up so JS can find it -->
+    <!-- ensure create-group modal exists (hidden) -->
     <div id="create-group-modal"
         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:9999;">
         <div style="background:#23232a;padding:16px;border-radius:12px;min-width:320px;max-width:90vw;color:#e6f4ff;">
@@ -137,14 +141,12 @@
         import { initMessages } from '/js/messages.mjs';
         import { initFriends } from '/js/friends.mjs';
 
-        // register socket if user present
+        // register socket and init modules
         if (window.userId) register(window.userId);
-
-        // init modules
         initMessages({ socket });
         initFriends({ socket });
 
-        // delete button helpers
+        // helpers
         const deleteBtn = document.getElementById('delete-convo-btn');
         const chatPlaceholder = document.getElementById('chat-placeholder');
 
@@ -161,7 +163,7 @@
             deleteBtn.style.display = 'none';
         }
 
-        // show delete when sidebar item clicked (quick UX)
+        // when sidebar item clicked we want quick UX hint for delete: (messages.mjs already opens convo)
         document.addEventListener('click', (e) => {
             const friendItem = e.target.closest('.chat-item.friend-profile');
             const groupItem = e.target.closest('.chat-item[data-type="group"]');
@@ -171,68 +173,57 @@
                 return;
             }
             if (groupItem) {
-                showDeleteFor(groupItem.dataset.type || 'group', groupItem.dataset.id);
+                showDeleteFor('group', groupItem.dataset.id);
                 if (chatPlaceholder) chatPlaceholder.style.display = 'none';
                 return;
             }
-            // hide if clicked outside sidebar and no active chat
+            // hide if clicked outside sidebar and delete button
             if (!e.target.closest('.chat-sidebar') && !e.target.closest('#delete-convo-btn')) {
                 const active = document.querySelector('.chat-item.active');
                 if (!active) hideDelete();
             }
         });
 
-        // also ensure delete shows when messages module opens conversation
-        window.addEventListener('conversation-opened', (ev) => {
+        // delete current conversation (friend or group)
+        async function doDeleteConversation(chatType, chatId) {
+            if (!chatType || !chatId) return;
+            const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Xóa cuộc trò chuyện sẽ xóa toàn bộ tin nhắn. Bạn chắc chắn?') : confirm('Xóa cuộc trò chuyện sẽ xóa toàn bộ tin nhắn. Bạn chắc chắn?');
+            if (!ok) return;
             try {
-                const d = ev && ev.detail;
-                if (d && d.chatType && d.chatId) showDeleteFor(d.chatType, d.chatId);
-            } catch (e) { /* noop */ }
-        });
-
-        // delete action
+                const r = await fetch('/api/messages/delete-conversation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ chatType, chatId })
+                });
+                if (r.status === 401) return window.location.href = '/login';
+                const j = await r.json();
+                if (j && j.success) {
+                    const chatBox = document.getElementById('chat-box');
+                    if (chatBox) chatBox.innerHTML = '<div class="system-message">Bạn đã xóa cuộc trò chuyện này.</div>';
+                    hideDelete();
+                    window.AVChat = window.AVChat || {};
+                    window.AVChat.currentChat = null;
+                    const li = document.querySelector(`.chat-item[data-id="${chatId}"]`);
+                    if (li) li.classList.remove('active');
+                } else {
+                    if (window.UI && window.UI.alert) await window.UI.alert(j && j.error ? j.error : 'Xóa thất bại'); else alert(j && j.error ? j.error : 'Xóa thất bại');
+                }
+            } catch (err) {
+                console.error(err);
+                if (window.UI && window.UI.alert) await window.UI.alert('Lỗi khi xóa cuộc trò chuyện'); else alert('Lỗi khi xóa cuộc trò chuyện');
+            }
+        }
         if (deleteBtn) {
             deleteBtn.addEventListener('click', async (ev) => {
                 ev.stopPropagation();
                 const chatType = deleteBtn.dataset.chatType || (window.AVChat && window.AVChat.currentChat && window.AVChat.currentChat.type);
                 const chatId = deleteBtn.dataset.chatId || (window.AVChat && window.AVChat.currentChat && window.AVChat.currentChat.id);
-                if (!chatType || !chatId) {
-                    if (window.UI && window.UI.alert) await window.UI.alert('Chọn cuộc trò chuyện trước khi xóa.');
-                    else alert('Chọn cuộc trò chuyện trước khi xóa.');
-                    return;
-                }
-                const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Xóa cuộc trò chuyện sẽ xóa toàn bộ tin nhắn. Bạn chắc chắn?') : confirm('Xóa cuộc trò chuyện sẽ xóa toàn bộ tin nhắn. Bạn chắc chắn?');
-                if (!ok) return;
-                try {
-                    const r = await fetch('/delete-conversation', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'same-origin',
-                        body: JSON.stringify({ chatType, chatId })
-                    });
-                    if (r.status === 401) return window.location.href = '/login';
-                    const j = await r.json();
-                    if (j && j.success) {
-                        const chatBox = document.getElementById('chat-box');
-                        if (chatBox) chatBox.innerHTML = '<div class="system-message">Bạn đã xóa cuộc trò chuyện này.</div>';
-                        hideDelete();
-                        window.AVChat = window.AVChat || {};
-                        window.AVChat.currentChat = null;
-                        const li = document.querySelector(`.chat-item[data-id="${chatId}"]`);
-                        if (li) li.classList.remove('active');
-                    } else {
-                        if (window.UI && window.UI.alert) await window.UI.alert(j && j.error ? j.error : 'Xóa thất bại');
-                        else alert(j && j.error ? j.error : 'Xóa thất bại');
-                    }
-                } catch (err) {
-                    console.error(err);
-                    if (window.UI && window.UI.alert) await window.UI.alert('Lỗi khi xóa cuộc trò chuyện');
-                    else alert('Lỗi khi xóa cuộc trò chuyện');
-                }
+                await doDeleteConversation(chatType, chatId);
             });
         }
 
-        // delegate remove friend
+        // remove friend -> API
         document.addEventListener('click', async (e) => {
             const btn = e.target.closest('.remove-friend-btn');
             if (!btn) return;
@@ -241,7 +232,7 @@
             const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Bạn có chắc muốn xóa bạn này?') : confirm('Bạn có chắc muốn xóa bạn này?');
             if (!ok) return;
             try {
-                const res = await fetch('/remove-friend', {
+                const res = await fetch('/api/friends/remove', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
@@ -250,34 +241,59 @@
                 if (res.status === 401) return window.location.href = '/login';
                 const jr = await res.json();
                 if (jr && jr.success) {
-                    const el = btn.closest('.friend-profile');
+                    const el = btn.closest('.friend-profile') || btn.closest('.chat-item.friend-profile');
                     if (el) el.remove();
                 } else {
-                    if (window.UI && window.UI.alert) await window.UI.alert(jr && jr.error ? jr.error : 'Lỗi xóa bạn');
-                    else alert(jr && jr.error ? jr.error : 'Lỗi xóa bạn');
+                    if (window.UI && window.UI.alert) await window.UI.alert(jr && jr.error ? jr.error : 'Lỗi xóa bạn'); else alert(jr && jr.error ? jr.error : 'Lỗi xóa bạn');
                 }
             } catch (err) {
                 console.error(err);
-                if (window.UI && window.UI.alert) await window.UI.alert('Lỗi xóa bạn');
-                else alert('Lỗi xóa bạn');
+                if (window.UI && window.UI.alert) await window.UI.alert('Lỗi xóa bạn'); else alert('Lỗi xóa bạn');
             }
         });
 
-        // listen server event to clear UI when conversation deleted remotely
-        if (socket && socket.on) {
-            socket.on('conversation-deleted', (data) => {
-                if (!data) return;
-                const cur = window.AVChat && window.AVChat.currentChat;
-                if (cur && String(cur.type) === String(data.chatType) && String(cur.id) === String(data.chatId)) {
-                    const chatBox = document.getElementById('chat-box');
-                    if (chatBox) chatBox.innerHTML = '<div class="system-message">Cuộc trò chuyện đã bị xóa.</div>';
-                    hideDelete();
-                    window.AVChat.currentChat = null;
+        // delete group conversation (per-group button in sidebar) — DELETE ENTIRE GROUP
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.delete-group-btn');
+            if (!btn) return;
+            e.stopPropagation();
+            const groupId = btn.dataset.id;
+            if (!groupId) return;
+            const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Xóa nhóm sẽ xóa nhóm và toàn bộ tin nhắn. Bạn chắc chắn?') : confirm('Xóa nhóm sẽ xóa nhóm và toàn bộ tin nhắn. Bạn chắc chắn?');
+            if (!ok) return;
+            try {
+                const r = await fetch('/api/groups/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ groupId })
+                });
+                if (r.status === 401) return window.location.href = '/login';
+                const j = await r.json();
+                if (j && j.success) {
+                    // remove group item from sidebar
+                    const li = document.querySelector(`.chat-item[data-type="group"][data-id="${groupId}"]`);
+                    if (li && li.parentNode) li.parentNode.removeChild(li);
+                    // if this group was active, clear chat and state
+                    const active = document.querySelector('.chat-item.active[data-type="group"][data-id="' + groupId + '"]');
+                    if (active) {
+                        const chatBox = document.getElementById('chat-box');
+                        if (chatBox) chatBox.innerHTML = '<div class="system-message">Nhóm đã bị xóa.</div>';
+                        hideDelete();
+                        window.AVChat = window.AVChat || {};
+                        window.AVChat.currentChat = null;
+                    }
+                    if (window.UI && window.UI.alert) await window.UI.alert('Xóa nhóm thành công');
+                } else {
+                    if (window.UI && window.UI.alert) await window.UI.alert(j && j.error ? j.error : 'Xóa thất bại'); else alert(j && j.error ? j.error : 'Xóa thất bại');
                 }
-            });
-        }
+            } catch (err) {
+                console.error(err);
+                if (window.UI && window.UI.alert) await window.UI.alert('Lỗi khi xóa nhóm'); else alert('Lỗi khi xóa nhóm');
+            }
+        });
 
-        // Add create-group UI wiring (minimal)
+        // Create group modal wiring (uses existing DOM ids)
         (function () {
             const openBtn = document.getElementById('create-group-btn');
             const modal = document.getElementById('create-group-modal');
@@ -295,7 +311,7 @@
                     const row = document.createElement('div');
                     row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.justifyContent = 'space-between';
                     row.style.padding = '6px 8px';
-                    row.innerHTML = `<div style="display:flex;gap:8px;align-items:center;"><input type="checkbox" data-id="${id}" /> <span style="color:#cfe7ff">${username}</span></div>`;
+                    row.innerHTML = `<label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" data-id="${id}" /> <span style="color:#cfe7ff">${username}</span></label>`;
                     membersList.appendChild(row);
                 });
             }
@@ -324,11 +340,9 @@
                             li.className = 'chat-item';
                             li.dataset.type = 'group';
                             li.dataset.id = String(j.group._id);
-                            li.textContent = j.group.name;
+                            li.innerHTML = `<span style="flex:1;">${j.group.name}</span><button class="delete-group-btn" data-id="${j.group._id}" title="Xóa lịch sử nhóm" style="margin-left:8px;background:transparent;border:none;color:#ef4444;cursor:pointer;">🗑️</button>`;
                             ul.insertBefore(li, ul.firstChild);
-                            // trigger selection (messages.mjs listens to clicks)
                             li.click();
-                            // join group room using imported socket
                             if (socket && socket.emit) socket.emit('join-group', String(j.group._id));
                         }
                         if (modal) modal.style.display = 'none';
@@ -340,6 +354,5 @@
             });
         })();
     </script>
-</body>
 
-</html>
+    <!-- ...existing closing body/html if any ... -->

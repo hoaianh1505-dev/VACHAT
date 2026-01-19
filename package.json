@@ -1,7 +1,7 @@
 {
   "name": "avchat",
   "version": "1.0.0",
-  "description": "<!-- (XÓA TOÀN BỘ NỘI DUNG FILE NÀY) -->",
+  "description": "AVChat — Realtime chat app with AI suggestions",
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/server.js",
