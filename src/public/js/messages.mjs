@@ -151,6 +151,38 @@ export function initMessages({ socket } = {}) {
         }
     }
 
+    // persist/restore helpers
+    function persistCurrentChat() {
+        try {
+            if (window.AVChat && window.AVChat.currentChat) {
+                localStorage.setItem('avchat.lastChat', JSON.stringify(window.AVChat.currentChat));
+            } else {
+                localStorage.removeItem('avchat.lastChat');
+            }
+        } catch (e) { /* noop */ }
+    }
+    window.addEventListener('beforeunload', persistCurrentChat);
+
+    // restore last-opened conversation (if any)
+    try {
+        const saved = localStorage.getItem('avchat.lastChat');
+        if (saved) {
+            const last = JSON.parse(saved);
+            if (last && last.type && last.id) {
+                // try to mark sidebar active if element exists
+                const sel = last.type === 'friend' ? `.chat-item.friend-profile[data-id="${String(last.id)}"]` : `.chat-item[data-type="group"][data-id="${String(last.id)}"]`;
+                const el = document.querySelector(sel);
+                if (el) {
+                    document.querySelectorAll('.chat-item.active').forEach(n => n.classList.remove('active'));
+                    el.classList.add('active');
+                }
+                window.AVChat.currentChat = { type: last.type, id: last.id };
+                // load messages (best-effort)
+                setTimeout(() => { loadMessages(last.type, last.id).catch(() => { }); }, 120);
+            }
+        }
+    } catch (e) { /* noop */ }
+
     // expose
     window.AVChat = window.AVChat || {};
     window.AVChat.loadMessages = loadMessages;
@@ -167,6 +199,7 @@ export function initMessages({ socket } = {}) {
             item.classList.add('active');
             const chatId = item.dataset.id;
             window.AVChat.currentChat = { type: 'friend', id: chatId };
+            persistCurrentChat(); // <- persist selection
             const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'none';
             await loadMessages('friend', chatId);
             const badge = item.querySelector('.unread-badge'); if (badge) badge.style.display = 'none';
@@ -185,6 +218,7 @@ export function initMessages({ socket } = {}) {
             item.classList.add('active');
             const chatId = item.dataset.id;
             window.AVChat.currentChat = { type: 'group', id: chatId };
+            persistCurrentChat(); // <- persist selection
             const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'none';
             await loadMessages('group', chatId);
             window.AVChat.showDeleteFor('group', chatId);
@@ -265,6 +299,23 @@ export function initMessages({ socket } = {}) {
                     }
                 }
             }
+        });
+
+        // clear persisted chat if conversation deleted remotely
+        socket.on('conversation-deleted', (data) => {
+            try {
+                if (!data) return;
+                const cur = window.AVChat && window.AVChat.currentChat;
+                if (cur && String(cur.type) === String(data.chatType) && String(cur.id) === String(data.chatId)) {
+                    window.AVChat.currentChat = null;
+                    persistCurrentChat();
+                    const chatBox = document.getElementById('chat-box');
+                    if (chatBox) chatBox.innerHTML = '<div class="system-message">Bạn đã xóa cuộc trò chuyện này.</div>';
+                    // remove active class on sidebar item
+                    const li = document.querySelector(`.chat-item[data-id="${data.chatId}"]`);
+                    if (li) li.classList.remove('active');
+                }
+            } catch (e) { /* noop */ }
         });
     }
 
