@@ -27,3 +27,18 @@ exports.getMessages = asyncHandler(async (req, res) => {
     const messages = await messageService.getMessages({ userId, chatType, chatId });
     res.json({ messages });
 });
+
+exports.deleteConversation = asyncHandler(async (req, res) => {
+    const userId = req.session.user && req.session.user._id;
+    const { chatType, chatId } = req.body;
+    if (!userId || !chatType || !chatId) return res.status(400).json({ success: false, error: 'Thiếu thông tin' });
+
+    try {
+        const io = req.app.get('io');
+        const result = await messageService.deleteConversation({ userId: String(userId), chatType, chatId, io });
+        return res.json({ success: true, deleted: result.deletedCount || 0 });
+    } catch (e) {
+        console.error('deleteConversation error', e);
+        return res.status(500).json({ success: false, error: e.message || 'Xóa cuộc trò chuyện thất bại' });
+    }
+});

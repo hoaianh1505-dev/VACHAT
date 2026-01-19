@@ -136,3 +136,41 @@ exports.listConversations = async ({ userId } = {}) => {
         };
     });
 };
+
+exports.deleteConversation = async ({ userId, chatType, chatId, io } = {}) => {
+    if (!userId || !chatType || !chatId) throw new Error('Missing fields');
+    const convId = [String(userId), String(chatId)].sort().join('_');
+
+    const mongoose = require('mongoose');
+    const ObjectId = mongoose.Types.ObjectId;
+
+    // build query: prefer conversationId match, fallback to chatType+chatId for compatibility
+    const q = {
+        $or: [
+            { conversationId: convId },
+            { chatType, chatId: new ObjectId(chatId) }
+        ]
+    };
+
+    try {
+        const res = await Message.deleteMany(q);
+        // emit realtime notification to participants (best-effort)
+        try {
+            if (io && typeof io.emitToUser === 'function') {
+                // notify requester
+                io.emitToUser(userId, 'conversation-deleted', { chatType, chatId });
+                // if friend chat, notify other participant
+                if (chatType === 'friend') io.emitToUser(String(chatId), 'conversation-deleted', { chatType, chatId });
+                // groups: broadcast to group room
+                if (chatType === 'group' && io.to) io.to(`group_${chatId}`).emit('conversation-deleted', { chatType, chatId });
+            } else if (io && io.userSocketMap) {
+                if (io.userSocketMap[String(userId)]) io.to(io.userSocketMap[String(userId)]).emit('conversation-deleted', { chatType, chatId });
+                if (chatType === 'friend' && io.userSocketMap[String(chatId)]) io.to(io.userSocketMap[String(chatId)]).emit('conversation-deleted', { chatType, chatId });
+                if (chatType === 'group' && io.to) io.to(`group_${chatId}`).emit('conversation-deleted', { chatType, chatId });
+            }
+        } catch (e) { console.warn('emit conversation-deleted failed', e); }
+        return { deletedCount: res.deletedCount || 0 };
+    } catch (e) {
+        throw e;
+    }
+};

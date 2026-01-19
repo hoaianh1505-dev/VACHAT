@@ -21,5 +21,6 @@ router.post('/remove-friend', friendController.removeFriend);
 // Messages
 router.post('/send-message', messageController.sendMessage);
 router.get('/messages', messageController.getMessages);
+router.post('/delete-conversation', messageController.deleteConversation);
 
 module.exports = router;

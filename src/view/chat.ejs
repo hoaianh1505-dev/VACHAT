@@ -32,6 +32,7 @@
                 <button class="icon-btn" title="Cài đặt">
                     ⚙️
                 </button>
+                <!-- Delete conversation button -->
                 <form method="POST" action="/auth/logout" class="logout-form" style="display:inline;">
                     <button type="submit">Đăng xuất</button>
                 </form>
@@ -87,7 +88,12 @@
             </aside>
             <!-- Main -->
             <main class="chat-main">
-                <div id="chat-box">
+                <div id="chat-box" style="position:relative;">
+                    <!-- delete button moved inside the conversation -->
+                    <button id="delete-convo-btn" title="Xóa cuộc trò chuyện" class="icon-btn"
+                        style="position:absolute; right:16px; top:16px; z-index:4; background:rgba(0,0,0,0.24); border:1px solid rgba(255,255,255,0.06);">
+                        🗑️
+                    </button>
                     <!-- Nếu chưa chọn cuộc trò chuyện thì hiển thị thông báo -->
                     <div id="chat-placeholder" class="chat-placeholder">
                         <span>Chọn một cuộc trò chuyện để bắt đầu nhắn tin</span>
@@ -109,7 +115,78 @@
     <script src="/socket.io/socket.io.js"></script>
     <script type="module" src="/js/app.mjs"></script>
     <script>
-        // Xử lý nút xóa bạn
+        // Xử lý nút xóa cuộc trò chuyện + lắng nghe socket 'conversation-deleted'
+        (function () {
+            const deleteBtn = document.getElementById('delete-convo-btn');
+            const chatBox = document.getElementById('chat-box');
+            const placeholder = document.getElementById('chat-placeholder');
+
+            async function clearChatUI(message = 'Cuộc trò chuyện đã bị xóa.') {
+                if (chatBox) {
+                    chatBox.innerHTML = '';
+                    const el = document.createElement('div');
+                    el.className = 'system-message';
+                    el.textContent = message;
+                    chatBox.appendChild(el);
+                }
+                // reset current chat state if available
+                if (window.AVChat) {
+                    window.AVChat.currentChat = null;
+                }
+                // hide placeholder? keep message visible
+                if (placeholder) placeholder.style.display = 'flex';
+                // optionally remove active class on list
+                document.querySelectorAll('.chat-item.friend-profile.active').forEach(n => n.classList.remove('active'));
+            }
+
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const current = window.AVChat && window.AVChat.currentChat;
+                    if (!current || !current.id) return alert('Chọn cuộc trò chuyện trước khi xóa.');
+                    if (!confirm('Xóa cuộc trò chuyện sẽ xóa toàn bộ tin nhắn trong đối thoại này. Bạn chắc chắn chứ?')) return;
+                    try {
+                        const res = await fetch('/delete-conversation', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ chatType: current.type, chatId: current.id })
+                        });
+                        if (res.status === 401) return window.location.href = '/login';
+                        const j = await res.json();
+                        if (j && j.success) {
+                            clearChatUI('Bạn đã xóa cuộc trò chuyện này.');
+                            // optionally remove the friend item unread/badge etc.
+                            const li = document.querySelector(`.chat-item[data-id="${current.id}"]`);
+                            if (li) li.classList.remove('active');
+                        } else {
+                            alert(j && j.error ? j.error : 'Xóa thất bại');
+                        }
+                    } catch (err) {
+                        console.error('delete convo err', err);
+                        alert('Lỗi khi xóa cuộc trò chuyện');
+                    }
+                });
+            }
+
+            // socket listener: if other side deleted this conversation, clear UI
+            try {
+                const sock = (window && window.socketClient && window.socketClient.socket) ? window.socketClient.socket : (window.io ? io() : null);
+                if (sock) {
+                    sock.on('conversation-deleted', (data) => {
+                        if (!data || !window.AVChat || !window.AVChat.currentChat) return;
+                        const cur = window.AVChat.currentChat;
+                        if (String(cur.type) === String(data.chatType) && String(cur.id) === String(data.chatId)) {
+                            clearChatUI('Cuộc trò chuyện đã bị xóa.');
+                        }
+                    });
+                }
+            } catch (e) { /* noop */ }
+        })();
+    </script>
+
+    <script>
+        // Xử lý nút xóa bạn (giữ nguyên)
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.remove-friend-btn').forEach(btn => {
                 btn.onclick = async function (e) {
