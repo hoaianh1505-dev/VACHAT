@@ -3,7 +3,7 @@ import { initMessages } from './messages.mjs';
 import { initFriends } from './friends.mjs';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Register socket id for this user
+    // Register socket id for this user (socket-client tự re-register khi connect)
     if (window.userId) register(window.userId);
 
     // Initialize modules after DOM is ready

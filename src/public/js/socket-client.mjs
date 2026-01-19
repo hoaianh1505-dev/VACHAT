@@ -10,7 +10,39 @@ export const socket = backend
     })
     : io(); // same-origin
 
-export function register(userId) {
-    if (userId) socket.emit('register-user', String(userId));
+let _pendingRegisterUserId = null;
+
+function _doRegister(id) {
+    try {
+        if (!id) return;
+        if (socket && socket.connected) {
+            socket.emit('register-user', String(id));
+        } else {
+            // keep pending and will send on connect
+            _pendingRegisterUserId = String(id);
+        }
+    } catch (e) { /* noop */ }
 }
+
+// auto-send pending register on connect / reconnect
+socket.on('connect', () => {
+    if (_pendingRegisterUserId) {
+        try { socket.emit('register-user', _pendingRegisterUserId); } catch (e) { }
+    }
+});
+
+// also ensure re-register on reconnection attempts
+socket.on('reconnect', () => {
+    if (_pendingRegisterUserId) {
+        try { socket.emit('register-user', _pendingRegisterUserId); } catch (e) { }
+    }
+});
+
+// public API
+export function register(userId) {
+    if (!userId) return;
+    _pendingRegisterUserId = String(userId);
+    _doRegister(userId);
+}
+
 export default { socket, register };
