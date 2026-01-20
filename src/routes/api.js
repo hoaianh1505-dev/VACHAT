@@ -10,6 +10,5 @@ router.use('/users', require('./users'));
 router.use('/messages', require('./messages'));
 router.use('/groups', require('./groups'));
 router.use('/friends', require('./friends'));
-router.use('/conversations', require('./conversations'));
 
 module.exports = router;

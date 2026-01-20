@@ -10,31 +10,11 @@ function parseIntSafe(v, def) {
 
 const raw = process.env || {};
 
-let SERVICE_ACCOUNT_JSON = raw.SERVICE_ACCOUNT_JSON || '';
-let SERVICE_ACCOUNT_OBJ = null;
-if (SERVICE_ACCOUNT_JSON) {
-    try {
-        SERVICE_ACCOUNT_OBJ = JSON.parse(SERVICE_ACCOUNT_JSON);
-    } catch (e) {
-        // leave as null, consumer may fallback to GOOGLE_APPLICATION_CREDENTIALS
-        SERVICE_ACCOUNT_OBJ = null;
-        console.warn('SERVICE_ACCOUNT_JSON is not valid JSON');
-    }
-}
-
 const env = {
     PORT: parseIntSafe(raw.PORT, 3000),
     MONGO_URI: raw.MONGO_URI || '',
     CHAT_SECRET: raw.CHAT_SECRET || 'chat_secret_key_123456',
-    SESSION_SECRET: raw.SESSION_SECRET || 'your_secret_key',
-    GEMINI_API_KEY: raw.GEMINI_API_KEY || '',
-    FORCE_LOCAL_AI: parseBool(raw.FORCE_LOCAL_AI),
-    GOOGLE_APPLICATION_CREDENTIALS: raw.GOOGLE_APPLICATION_CREDENTIALS || '',
-    SERVICE_ACCOUNT_JSON: SERVICE_ACCOUNT_JSON,
-    SERVICE_ACCOUNT_OBJ,
-    GCP_PROJECT: raw.GCP_PROJECT || '',
-    // new: frontend origin (where standalone client is hosted), use exact origin e.g. https://demo.example.com or http://192.168.0.10:8080
-    FRONTEND_URL: raw.FRONTEND_URL || raw.ALLOWED_ORIGIN || ''
+    SESSION_SECRET: raw.SESSION_SECRET || 'your_secret_key'
 };
 
 // helper accessor (safe)
@@ -44,7 +24,6 @@ env.get = (key, def) => (Object.prototype.hasOwnProperty.call(env, key) ? env[ke
 env.validate = () => {
     const warnings = [];
     if (!env.MONGO_URI) warnings.push('MONGO_URI not set — DB will not connect.');
-    // do not require GEMINI key (we support local fallback)
     return warnings;
 };
 

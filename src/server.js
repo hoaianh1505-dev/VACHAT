@@ -1,112 +1,41 @@
-// thay vì require('dotenv').config(); dùng config/environment
 const env = require('./config/environment');
 const db = require('./config/database');
 const socketConfig = require('./config/socket');
+const setupMiddleware = require('./config/appMiddleware');
+const setupRoutes = require('./config/appRoutes');
 const express = require('express');
 const http = require('http');
 const socketio = require('socket.io');
-const path = require('path');
-const session = require('express-session');
-const MongoStore = require('connect-mongo').default; // Sửa lại import .default
-const middleware = require('./middleware'); // <-- mới: tập trung middleware
 
-// Đăng ký schema Group trước khi sử dụng populate
-require('./models/Group');
-
+// Initialize Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
-const io = socketio(server, {
-    cors: {
-        origin: env.FRONTEND_URL || true,
-        methods: ['GET', 'POST'],
-        credentials: true
-    }
-});
 
-// initialize socket map + handlers via config
+// Initialize Socket.IO with configuration
+const io = socketio(server);
 socketConfig(io);
 
-app.set('io', io); // Thêm dòng này
+// Setup middleware (includes session, body parsers, static files, etc.)
+setupMiddleware(app, io);
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+// Setup routes
+setupRoutes(app);
 
-// Session store setup (use Mongo when configured, fallback to MemoryStore)
-let sessionStore;
-if (env.MONGO_URI) {
-    // try to create MongoStore; fall back to MemoryStore on failure
-    try {
-        sessionStore = MongoStore.create({ mongoUrl: env.MONGO_URI });
-        console.log('Session store: MongoDB');
-    } catch (e) {
-        console.warn('MongoStore.create failed, falling back to MemoryStore:', e.message || e);
-        sessionStore = new session.MemoryStore();
-    }
-} else {
-    console.warn('MONGO_URI not set — using in-memory session store (not for production)');
-    sessionStore = new session.MemoryStore();
-}
+// Start server
+const PORT = env.PORT || 3000;
 
-app.use(session({
-    secret: env.SESSION_SECRET || 'your_secret_key',
-    resave: false,
-    saveUninitialized: false,
-    store: sessionStore,
-    cookie: {
-        // if FRONTEND_URL provided and uses https, recommend sameSite='none' and secure=true for cross-site cookies
-        secure: (process.env.NODE_ENV === 'production') || (env.FRONTEND_URL && String(env.FRONTEND_URL).startsWith('https')),
-        sameSite: env.FRONTEND_URL ? 'none' : 'lax'
-    }
-}));
-
-// trust proxy in production (if behind a proxy/load balancer)
-if (process.env.NODE_ENV === 'production') {
-    app.set('trust proxy', 1);
-}
-
-// Thêm logger và CORS middleware (sau body parser, trước routes)
-app.use(middleware.requestLogger);
-app.use(middleware.cors);
-
-// View engine
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'view'));
-
-// MongoDB connect (dùng module)
 db.connect()
     .then(() => {
         console.log('MongoDB connected');
-        // show whether GEMINI key is configured (do not print the key)
-        const env = require('./config/environment');
-        if (env.GEMINI_API_KEY) console.log('Gemini API key: configured');
-        else console.log('Gemini API key: NOT configured — AI will fallback to local generator.');
+
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+            console.log(`App link: http://localhost:${PORT}`);
+        });
     })
-    .catch(err => console.error('MongoDB error:', err));
+    .catch(err => {
+        console.error('MongoDB connection error:', err);
+        process.exit(1);
+    });
 
-// Routes
-const homeRoute = require('./routes/home');
-const loginRoute = require('./routes/login');
-const authRoute = require('./routes/auth');
-// Mount single API root that aggregates subroutes
-const apiRouter = require('./routes/api');
-
-app.use('/', homeRoute);
-app.use('/', loginRoute);
-app.use('/auth', authRoute);
-
-// mount API router under /api
-app.use('/api', apiRouter);
-
-// Thêm error handler cuối cùng
-app.use(middleware.errorHandler);
-
-// Start server
-const PORT = env.PORT || process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`App link: http://localhost:${PORT}`);
-    // show configured frontend origin for debugging
-    if (env.FRONTEND_URL) console.log('Allowed frontend origin (CORS/SocketIO):', env.FRONTEND_URL);
-});
+module.exports = { app, server, io };

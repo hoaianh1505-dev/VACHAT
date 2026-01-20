@@ -20,25 +20,17 @@ Cài đặt & chạy
    MONGO_URI=your_mongo_uri
    PORT=1505
    SESSION_SECRET=your_session_secret
-   (tùy chọn) FRONTEND_URL=https://your-frontend.example
 
 3. Chạy server (dev):
    npm run dev
 
-4. Mở trình duyệt tới http://localhost:1505 (hoặc URL công khai qua ngrok)
-
-Chạy client tách rời
-- Nếu bạn muốn host giao diện trên máy khác, set `FRONTEND_URL` trên server và trên client đặt:
-  <script>window.BACKEND_URL='https://your-server.example'</script>
-- Đảm bảo cả 2 client kết nối cùng 1 backend (ngrok/public IP) để realtime hoạt động.
+4. Mở trình duyệt tới http://localhost:1505
 
 Biến môi trường chính
 - MONGO_URI — chuỗi kết nối MongoDB (bắt buộc cho DB/session trong prod).
 - PORT — cổng server.
 - SESSION_SECRET — secret cho express-session.
 - CHAT_SECRET — (tùy) AES key để mã hoá tin nhắn.
-- FRONTEND_URL — origin client (dùng khi client tách rời).
-- GEMINI_API_KEY / SERVICE_ACCOUNT_JSON — AI (có thể bị tắt).
 
 Lưu ý realtime & debug
 - Realtime hoạt động khi mọi client kết nối tới cùng 1 Socket.IO server.
@@ -46,13 +38,9 @@ Lưu ý realtime & debug
 - Kiểm tra DevTools → Network (WS) để xác nhận socket kết nối tới đúng backend.
 - Server có helper `io.emitToUser` để gửi tới tất cả sockets của 1 user; client phải gửi userId (window.userId) hoặc gọi register(userId) sau khi connect.
 
-AI
-- AI có thể bị tắt trên nhánh này. Nếu muốn bật, cung cấp GEMINI_API_KEY hoặc cấu hình Service Account và khôi phục aiService.
-
 Bảo mật
 - KHÔNG commit `.env` chứa secrets.
 - Dùng HTTPS và `SESSION_SECRET` mạnh cho production.
-- Nếu dùng cookie cross‑origin: host client qua HTTPS và set FRONTEND_URL; cookie.sameSite có thể là 'none' và secure=true.
 
 Khắc phục nhanh
 - Lỗi session store / connect-mongo: kiểm tra MONGO_URI, server log báo nếu fallback sang MemoryStore.
