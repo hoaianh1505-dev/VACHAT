@@ -71,3 +71,17 @@ Góp ý & đóng góp
 
 License
 - MIT
+
+---
+
+Lightweight chat app.
+
+Quick start:
+1. Copy .env and set MONGO_URI, PORT, SESSION_SECRET...
+2. npm install
+3. npm run dev   # or npm start
+
+Server entry: `src/server.js`
+Socket handlers: `src/socket/socketHandlers.js`
+
+No UI/UX changes performed — only code cleanups and socket/router wiring.

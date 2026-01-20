@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const homeController = require('../controllers/homeController');
-const auth = require('../middleware/auth');
+const middleware = require('../middleware');
 
 router.get('/', homeController.index);
-router.get('/chat', auth, homeController.chat);
+router.get('/chat', middleware.auth, homeController.chat);
 
 module.exports = router;

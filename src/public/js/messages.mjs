@@ -133,7 +133,8 @@ export function initMessages({ socket } = {}) {
             window.AVChat = window.AVChat || {};
             window.AVChat.lastMessages = data.messages || [];
             setSendEnabled(true);
-            if (input) input.focus();
+            // removed automatic focus here — focus only when user explicitly opens a convo
+            // if (input) input.focus();
 
             // show delete button
             const dd = getDeleteBtn();
@@ -202,6 +203,8 @@ export function initMessages({ socket } = {}) {
             persistCurrentChat(); // <- persist selection
             const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'none';
             await loadMessages('friend', chatId);
+            // focus input only when user clicked to open this convo
+            if (input) input.focus();
             const badge = item.querySelector('.unread-badge'); if (badge) badge.style.display = 'none';
             if (window.AVChat.pendingMessages) delete window.AVChat.pendingMessages[chatId];
             window.AVChat.showDeleteFor('friend', chatId);
@@ -221,6 +224,8 @@ export function initMessages({ socket } = {}) {
             persistCurrentChat(); // <- persist selection
             const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'none';
             await loadMessages('group', chatId);
+            // focus input only when user clicked to open this convo
+            if (input) input.focus();
             window.AVChat.showDeleteFor('group', chatId);
         });
     }

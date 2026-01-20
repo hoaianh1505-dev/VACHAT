@@ -1,26 +1,22 @@
+const { attachRateLimiter } = require('../utils/rateLimiter');
+
 const userSocket = require('./userSocket');
 const messageSocket = require('./messageSocket');
 const groupSocket = require('./groupSocket');
 const friendSocket = require('./friendSocket');
 
 module.exports = (io) => {
-    // initialize maps (userId -> Set(socketId)), (socketId -> userId)
-    io.userSockets = io.userSockets || {};
-    io.socketUser = io.socketUser || {};
-    // userId -> socketId | [socketId,...]
+    // central map: userId -> socketId | [socketId,...]
     io.userSocketMap = io.userSocketMap || {};
 
-    // Emit helper: send event to all sockets of a userId
+    // helper: emit to all sockets of a userId
     io.emitToUser = function (userId, event, payload) {
         if (!userId) return;
         const key = String(userId);
         const entry = io.userSocketMap[key];
         if (!entry) return;
-        if (Array.isArray(entry)) {
-            entry.forEach(sid => { try { io.to(sid).emit(event, payload); } catch (e) { /* noop */ } });
-        } else {
-            try { io.to(entry).emit(event, payload); } catch (e) { /* noop */ }
-        }
+        const send = sid => { try { io.to(sid).emit(event, payload); } catch (e) { /* noop */ } };
+        if (Array.isArray(entry)) entry.forEach(send); else send(entry);
     };
 
     function registerSocketForUser(userId, sid) {
@@ -52,16 +48,16 @@ module.exports = (io) => {
     }
 
     io.on('connection', (socket) => {
-        // try register from handshake.auth (socket-client sets auth.userId)
+        // attach reusable rate limiter
+        try { attachRateLimiter(socket); } catch (e) { /* noop */ }
+
+        // try register from handshake.auth.userId
         try {
             const authId = socket.handshake && socket.handshake.auth && socket.handshake.auth.userId;
-            if (authId) {
-                socket.userId = String(authId);
-                registerSocketForUser(socket.userId, socket.id);
-            }
+            if (authId) { socket.userId = String(authId); registerSocketForUser(socket.userId, socket.id); }
         } catch (e) { /* noop */ }
 
-        // allow post-connect explicit register
+        // allow explicit register after connect
         socket.on('register-user', (userId) => {
             try {
                 if (!userId) return;
@@ -70,7 +66,7 @@ module.exports = (io) => {
             } catch (e) { /* noop */ }
         });
 
-        // attach sub-handlers (best-effort)
+        // attach optional sub-handlers (best-effort)
         try { require('./messageSocket')(io, socket); } catch (e) { /* noop */ }
         try { require('./friendSocket')(io, socket); } catch (e) { /* noop */ }
         try { require('./groupSocket')(io, socket); } catch (e) { /* noop */ }

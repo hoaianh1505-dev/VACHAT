@@ -1,25 +1,24 @@
 {
   "name": "avchat",
   "version": "1.0.0",
-  "description": "AVChat - chat app",
+  "description": "AVChat - lightweight chat app",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"
   },
+  "license": "ISC",
   "dependencies": {
-    "bcryptjs": "^3.0.3",
     "connect-mongo": "^6.0.0",
     "dotenv": "^17.2.3",
     "ejs": "^4.0.1",
     "express": "^5.2.1",
     "express-session": "^1.18.2",
-    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.4",
-    "node-fetch": "^2.7.0",
-    "openai": "^6.16.0",
     "socket.io": "^4.8.3",
-    "google-auth-library": "^9.0.0"
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
