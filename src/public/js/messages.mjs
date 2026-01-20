@@ -317,6 +317,8 @@ export function initMessages({ socket } = {}) {
                 }
             } catch (e) { /* noop */ }
         });
+
+        // NOTE: removed 'message-sent' handler — no transient "Tin nhắn đã gửi" UI.
     }
 
     // Emoji picker

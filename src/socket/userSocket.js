@@ -6,15 +6,17 @@ module.exports = (io, socket) => {
     // allow explicit re-register (client may call this)
     socket.on('register-user', (userId) => {
         if (!userId) return;
-        const uid = String(userId);
-        socket.userId = uid;
         try {
-            io.userSockets = io.userSockets || {};
-            io.socketUser = io.socketUser || {};
-            io.userSockets[uid] = io.userSockets[uid] || new Set();
-            io.userSockets[uid].add(socket.id);
-            io.socketUser[socket.id] = uid;
-            try { socket.emit('user-registered', { userId: uid }); } catch (e) { }
+            socket.userId = String(userId);
+            io.userSocketMap = io.userSocketMap || {};
+            const key = String(userId);
+            const prev = io.userSocketMap[key];
+            if (!prev) io.userSocketMap[key] = socket.id;
+            else if (Array.isArray(prev)) {
+                if (!prev.includes(socket.id)) prev.push(socket.id);
+            } else if (prev !== socket.id) {
+                io.userSocketMap[key] = [prev, socket.id];
+            }
         } catch (e) { /* noop */ }
     });
 };

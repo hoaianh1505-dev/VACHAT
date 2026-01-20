@@ -1,14 +1,16 @@
 const Group = require('../models/Group');
 
 module.exports = (io, socket) => {
+    // join a group room
     socket.on('join-group', (groupId) => {
         if (!groupId) return;
-        socket.join(`group_${String(groupId)}`);
+        try { socket.join(`group_${String(groupId)}`); } catch (e) { /* noop */ }
     });
 
+    // leave a group room
     socket.on('leave-group', (groupId) => {
         if (!groupId) return;
-        socket.leave(`group_${String(groupId)}`);
+        try { socket.leave(`group_${String(groupId)}`); } catch (e) { /* noop */ }
     });
 
     socket.on('group message', (data) => {

@@ -7,67 +7,77 @@ module.exports = (io) => {
     // initialize maps (userId -> Set(socketId)), (socketId -> userId)
     io.userSockets = io.userSockets || {};
     io.socketUser = io.socketUser || {};
+    // userId -> socketId | [socketId,...]
+    io.userSocketMap = io.userSocketMap || {};
 
-    // helper: emit to all sockets of a user
+    // Emit helper: send event to all sockets of a userId
     io.emitToUser = function (userId, event, payload) {
         if (!userId) return;
-        try {
-            const uid = String(userId);
-            const sockets = io.userSockets[uid];
-            if (sockets && sockets.size) {
-                for (const sid of sockets) io.to(sid).emit(event, payload);
-            }
-        } catch (e) { /* noop */ }
+        const key = String(userId);
+        const entry = io.userSocketMap[key];
+        if (!entry) return;
+        if (Array.isArray(entry)) {
+            entry.forEach(sid => { try { io.to(sid).emit(event, payload); } catch (e) { /* noop */ } });
+        } else {
+            try { io.to(entry).emit(event, payload); } catch (e) { /* noop */ }
+        }
     };
 
+    function registerSocketForUser(userId, sid) {
+        if (!userId || !sid) return;
+        const key = String(userId);
+        const prev = io.userSocketMap[key];
+        if (!prev) io.userSocketMap[key] = sid;
+        else if (Array.isArray(prev)) {
+            if (!prev.includes(sid)) prev.push(sid);
+        } else if (prev !== sid) {
+            io.userSocketMap[key] = [prev, sid];
+        }
+    }
+
+    function unregisterSocketId(sid) {
+        if (!sid) return;
+        for (const k of Object.keys(io.userSocketMap)) {
+            const v = io.userSocketMap[k];
+            if (Array.isArray(v)) {
+                const idx = v.indexOf(sid);
+                if (idx >= 0) {
+                    v.splice(idx, 1);
+                    io.userSocketMap[k] = v.length === 1 ? v[0] : v;
+                }
+            } else if (v === sid) {
+                delete io.userSocketMap[k];
+            }
+        }
+    }
+
     io.on('connection', (socket) => {
-        // auto-register from handshake.auth if provided
+        // try register from handshake.auth (socket-client sets auth.userId)
         try {
-            const hid = socket.handshake && socket.handshake.auth && socket.handshake.auth.userId;
-            if (hid) {
-                const uid = String(hid);
-                io.userSockets[uid] = io.userSockets[uid] || new Set();
-                io.userSockets[uid].add(socket.id);
-                io.socketUser[socket.id] = uid;
-                socket.userId = uid;
-                try { socket.emit('user-registered', { userId: uid }); } catch (e) { }
+            const authId = socket.handshake && socket.handshake.auth && socket.handshake.auth.userId;
+            if (authId) {
+                socket.userId = String(authId);
+                registerSocketForUser(socket.userId, socket.id);
             }
         } catch (e) { /* noop */ }
 
-        // explicit register event (client may emit)
+        // allow post-connect explicit register
         socket.on('register-user', (userId) => {
-            if (!userId) return;
-            const uid = String(userId);
-            io.userSockets[uid] = io.userSockets[uid] || new Set();
-            io.userSockets[uid].add(socket.id);
-            io.socketUser[socket.id] = uid;
-            socket.userId = uid;
-            try { socket.emit('user-registered', { userId: uid }); } catch (e) { }
+            try {
+                if (!userId) return;
+                socket.userId = String(userId);
+                registerSocketForUser(socket.userId, socket.id);
+            } catch (e) { /* noop */ }
         });
 
-        // convenience join/leave group rooms
-        socket.on('join-group', (groupId) => { if (groupId) socket.join(`group_${String(groupId)}`); });
-        socket.on('leave-group', (groupId) => { if (groupId) socket.leave(`group_${String(groupId)}`); });
-
-        // load modular handlers (best-effort)
+        // attach sub-handlers (best-effort)
         try { require('./messageSocket')(io, socket); } catch (e) { /* noop */ }
         try { require('./friendSocket')(io, socket); } catch (e) { /* noop */ }
-        try { require('./aiSocket')(io, socket); } catch (e) { /* noop */ }
-        try { require('./userSocket')(io, socket); } catch (e) { /* noop */ }
         try { require('./groupSocket')(io, socket); } catch (e) { /* noop */ }
+        try { require('./userSocket')(io, socket); } catch (e) { /* noop */ }
 
-        // cleanup on disconnect
         socket.on('disconnect', () => {
-            const sid = socket.id;
-            const uid = io.socketUser[sid] || socket.userId;
-            if (uid) {
-                const set = io.userSockets[String(uid)];
-                if (set) {
-                    set.delete(sid);
-                    if (set.size === 0) delete io.userSockets[String(uid)];
-                }
-            }
-            delete io.socketUser[sid];
+            unregisterSocketId(socket.id);
         });
     });
 };
