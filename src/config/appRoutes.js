@@ -7,8 +7,11 @@ const middleware = require('../middleware');
 function setupRoutes(app) {
     // Page routes
     app.use('/', require('../routes/home'));
-    app.use('/', require('../routes/login'));
-    app.use('/auth', require('../routes/auth'));
+
+    // Auth routes (handles /login, /register, /auth/login, /auth/register)
+    const authRouter = require('../routes/auth');
+    app.use('/', authRouter);
+    app.use('/auth', authRouter);
 
     // API routes (aggregated under /api)
     app.use('/api', require('../routes/api'));

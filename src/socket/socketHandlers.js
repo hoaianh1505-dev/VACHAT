@@ -49,13 +49,13 @@ module.exports = (io) => {
 
     io.on('connection', (socket) => {
         // attach reusable rate limiter
-        try { attachRateLimiter(socket); } catch (e) { /* noop */ }
+        try { attachRateLimiter(socket); } catch (e) { console.error('Socket error:', e); }
 
         // try register from handshake.auth.userId
         try {
             const authId = socket.handshake && socket.handshake.auth && socket.handshake.auth.userId;
             if (authId) { socket.userId = String(authId); registerSocketForUser(socket.userId, socket.id); }
-        } catch (e) { /* noop */ }
+        } catch (e) { console.error('Socket error:', e); }
 
         // allow explicit register after connect
         socket.on('register-user', (userId) => {
@@ -63,14 +63,14 @@ module.exports = (io) => {
                 if (!userId) return;
                 socket.userId = String(userId);
                 registerSocketForUser(socket.userId, socket.id);
-            } catch (e) { /* noop */ }
+            } catch (e) { console.error('Socket error:', e); }
         });
 
         // attach optional sub-handlers (best-effort)
-        try { require('./messageSocket')(io, socket); } catch (e) { /* noop */ }
-        try { require('./friendSocket')(io, socket); } catch (e) { /* noop */ }
-        try { require('./groupSocket')(io, socket); } catch (e) { /* noop */ }
-        try { require('./userSocket')(io, socket); } catch (e) { /* noop */ }
+        try { require('./messageSocket')(io, socket); } catch (e) { console.error('Socket error:', e); }
+        try { require('./friendSocket')(io, socket); } catch (e) { console.error('Socket error:', e); }
+        try { require('./groupSocket')(io, socket); } catch (e) { console.error('Socket error:', e); }
+        try { require('./userSocket')(io, socket); } catch (e) { console.error('Socket error:', e); }
 
         socket.on('disconnect', () => {
             unregisterSocketId(socket.id);

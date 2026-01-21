@@ -1,5 +1,13 @@
 const authService = require('../services/authService');
 
+exports.showLogin = (req, res) => {
+    res.render('login');
+};
+
+exports.showRegister = (req, res) => {
+    res.render('register');
+};
+
 exports.register = async (req, res) => {
     try {
         await authService.register(req.body);
