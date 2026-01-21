@@ -1,78 +1,46 @@
-const Group = require('../models/Group');
-const User = require('../models/User');
+const groupService = require('../services/groupService');
 const asyncHandler = require('../utils/asyncHandler');
+const response = require('../utils/response');
 
 exports.list = asyncHandler(async (req, res) => {
-    const groups = await Group.find({}).select('name members createdAt');
-    res.json({ groups });
+    const groups = await groupService.listGroups();
+    return response.ok(res, { groups });
 });
 
 exports.create = asyncHandler(async (req, res) => {
     const sessionUser = req.session && req.session.user;
-    if (!sessionUser) return res.status(401).json({ error: 'Unauthorized' });
+    if (!sessionUser) return response.err(res, 'Unauthorized', 401);
 
     const { name, members } = req.body;
-    const selected = Array.isArray(members) ? members.map(String).filter(Boolean) : [];
-    if (!name || !selected.length) return res.status(400).json({ error: 'Missing name or members' });
-    // yêu cầu ít nhất 2 bạn (khác creator)
-    if (selected.length < 2) return res.status(400).json({ error: 'Chọn ít nhất 2 bạn để tạo nhóm' });
+    const group = await groupService.createGroup({
+        name,
+        members,
+        creatorId: String(sessionUser._id),
+        io: req.app.get('io')
+    });
 
-    // ensure creator included
-    const creatorId = String(sessionUser._id);
-    const allMembers = Array.from(new Set([creatorId, ...selected]));
-
-    const group = await Group.create({ name, members: allMembers });
-
-    // add group id to each user's groups array
-    try {
-        await User.updateMany({ _id: { $in: allMembers } }, { $addToSet: { groups: group._id } });
-    } catch (e) {
-        console.warn('update users with group failed', e);
-    }
-
-    // realtime notify members (best-effort)
-    try {
-        const io = req.app.get('io');
-        if (io && typeof io.emitToUser === 'function') {
-            for (const m of allMembers) {
-                io.emitToUser(String(m), 'group-added', { group: { _id: String(group._id), name: group.name, members: allMembers } });
-            }
-        } else if (io && io.userSocketMap) {
-            for (const m of allMembers) {
-                const sid = io.userSocketMap[String(m)];
-                if (sid) io.to(sid).emit('group-added', { group: { _id: String(group._id), name: group.name, members: allMembers } });
-            }
-        }
-    } catch (e) { console.warn('emit group-added failed', e); }
-
-    return res.json({ success: true, group });
+    return response.ok(res, { success: true, group });
 });
 
 exports.addMember = asyncHandler(async (req, res) => {
     const { groupId, userId } = req.body;
-    if (!groupId || !userId) return res.status(400).json({ error: 'Missing ids' });
-    await Group.findByIdAndUpdate(groupId, { $addToSet: { members: userId } });
-    await User.findByIdAndUpdate(userId, { $addToSet: { groups: groupId } });
-    res.json({ success: true });
+    await groupService.addMember({ groupId, userId });
+    return response.ok(res, { success: true });
 });
 
 exports.removeMember = asyncHandler(async (req, res) => {
     const { groupId, userId } = req.body;
-    if (!groupId || !userId) return res.status(400).json({ error: 'Missing ids' });
-    await Group.findByIdAndUpdate(groupId, { $pull: { members: userId } });
-    await User.findByIdAndUpdate(userId, { $pull: { groups: groupId } });
-    res.json({ success: true });
+    await groupService.removeMember({ groupId, userId });
+    return response.ok(res, { success: true });
 });
 
 // DELETE group (remove group entity, its messages and references)
 exports.delete = asyncHandler(async (req, res) => {
     const sessionUser = req.session && req.session.user;
-    if (!sessionUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
-    const { groupId } = req.body || {};
-    if (!groupId) return res.status(400).json({ success: false, error: 'Missing groupId' });
+    if (!sessionUser) return response.err(res, 'Unauthorized', 401);
 
-    const groupService = require('../services/groupService');
+    const { groupId } = req.body || {};
     const io = req.app.get('io');
     const result = await groupService.deleteGroup({ userId: String(sessionUser._id), groupId: String(groupId), io });
-    return res.json({ success: true, deleted: result.deletedCount || 0 });
+    return response.ok(res, { success: true, deleted: result.deletedCount || 0 });
 });

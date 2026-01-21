@@ -1,4 +1,61 @@
-export function initMessages({ socket } = {}) {
+import './ui.mjs';
+
+// --- Socket Initialization ---
+const backend = (typeof window !== 'undefined' && window.BACKEND_URL) ? window.BACKEND_URL.replace(/\/$/, '') : '';
+const initialUserId = (typeof window !== 'undefined' && window.userId) ? String(window.userId) : null;
+
+// Ensure io is available (loaded via CDN or script tag in EJS)
+const socket = (typeof io !== 'undefined') ? (backend
+    ? io(backend, {
+        withCredentials: true,
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        path: '/socket.io',
+        auth: { userId: initialUserId }
+    })
+    : io({ auth: { userId: initialUserId } })) : null;
+
+if (!socket) console.error('Socket.IO client not found');
+
+let _pendingRegisterUserId = initialUserId || null;
+
+function _doRegister(id) {
+    try {
+        if (!id) return;
+        _pendingRegisterUserId = String(id);
+        if (socket && socket.auth) socket.auth.userId = _pendingRegisterUserId;
+        if (socket && socket.connected) {
+            socket.emit('register-user', String(id));
+        }
+    } catch (e) { /* noop */ }
+}
+
+if (socket) {
+    socket.on('connect', () => {
+        if (_pendingRegisterUserId) {
+            try { socket.emit('register-user', _pendingRegisterUserId); } catch (e) { }
+        }
+    });
+
+    socket.on('reconnect_attempt', () => {
+        if (_pendingRegisterUserId && socket && socket.auth) socket.auth.userId = _pendingRegisterUserId;
+    });
+}
+
+function registerUser(userId) {
+    if (!userId) return;
+    _doRegister(userId);
+}
+
+// Expose register global for legacy usage if needed
+if (typeof window !== 'undefined') {
+    window.socketClient = { socket, register: registerUser };
+}
+
+// --- Messages Logic ---
+function initMessages({ socket } = {}) {
     const form = document.getElementById('chat-form');
     const input = document.getElementById('message');
     const chatBox = document.getElementById('chat-box');
@@ -23,7 +80,6 @@ export function initMessages({ socket } = {}) {
         return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
-    // dedupe recent messages to avoid double-render
     window.AVChat = window.AVChat || {};
     if (!window.AVChat._recentMsgKeys) window.AVChat._recentMsgKeys = new Map();
     function makeMsgKey(obj) {
@@ -111,7 +167,6 @@ export function initMessages({ socket } = {}) {
     }
     function hideLoading() { const el = document.getElementById('messages-loading'); if (el && el.parentNode) el.parentNode.removeChild(el); }
 
-    // hide delete by default
     const dbtn = getDeleteBtn();
     if (dbtn) { dbtn.style.display = 'none'; dbtn.dataset.chatId = ''; dbtn.dataset.chatType = ''; }
 
@@ -133,17 +188,12 @@ export function initMessages({ socket } = {}) {
             window.AVChat = window.AVChat || {};
             window.AVChat.lastMessages = data.messages || [];
             setSendEnabled(true);
-            // removed automatic focus here — focus only when user explicitly opens a convo
-            // if (input) input.focus();
 
-            // show delete button
             const dd = getDeleteBtn();
             if (dd) { dd.style.display = 'inline-flex'; dd.dataset.chatId = chatId; dd.dataset.chatType = chatType; }
 
-            // join group room if group
             if (chatType === 'group' && socket && socket.emit) socket.emit('join-group', chatId);
 
-            // notify other UI that conversation opened
             try { window.dispatchEvent(new CustomEvent('conversation-opened', { detail: { chatType, chatId } })); } catch (e) { }
         } catch (err) {
             console.error('loadMessages error', err);
@@ -152,7 +202,6 @@ export function initMessages({ socket } = {}) {
         }
     }
 
-    // persist/restore helpers
     function persistCurrentChat() {
         try {
             if (window.AVChat && window.AVChat.currentChat) {
@@ -164,13 +213,11 @@ export function initMessages({ socket } = {}) {
     }
     window.addEventListener('beforeunload', persistCurrentChat);
 
-    // restore last-opened conversation (if any)
     try {
         const saved = localStorage.getItem('avchat.lastChat');
         if (saved) {
             const last = JSON.parse(saved);
             if (last && last.type && last.id) {
-                // try to mark sidebar active if element exists
                 const sel = last.type === 'friend' ? `.chat-item.friend-profile[data-id="${String(last.id)}"]` : `.chat-item[data-type="group"][data-id="${String(last.id)}"]`;
                 const el = document.querySelector(sel);
                 if (el) {
@@ -178,19 +225,16 @@ export function initMessages({ socket } = {}) {
                     el.classList.add('active');
                 }
                 window.AVChat.currentChat = { type: last.type, id: last.id };
-                // load messages (best-effort)
                 setTimeout(() => { loadMessages(last.type, last.id).catch(() => { }); }, 120);
             }
         }
     } catch (e) { /* noop */ }
 
-    // expose
     window.AVChat = window.AVChat || {};
     window.AVChat.loadMessages = loadMessages;
     window.AVChat.currentChat = window.AVChat.currentChat || null;
     window.AVChat.showDeleteFor = (t, id) => { const dd = getDeleteBtn(); if (!dd) return; dd.dataset.chatType = t; dd.dataset.chatId = id; dd.style.display = 'inline-flex'; };
 
-    // friends click
     const friendsList = document.getElementById('friends');
     if (friendsList) {
         friendsList.addEventListener('click', async (e) => {
@@ -200,10 +244,9 @@ export function initMessages({ socket } = {}) {
             item.classList.add('active');
             const chatId = item.dataset.id;
             window.AVChat.currentChat = { type: 'friend', id: chatId };
-            persistCurrentChat(); // <- persist selection
+            persistCurrentChat();
             const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'none';
             await loadMessages('friend', chatId);
-            // focus input only when user clicked to open this convo
             if (input) input.focus();
             const badge = item.querySelector('.unread-badge'); if (badge) badge.style.display = 'none';
             if (window.AVChat.pendingMessages) delete window.AVChat.pendingMessages[chatId];
@@ -211,7 +254,6 @@ export function initMessages({ socket } = {}) {
         });
     }
 
-    // groups click
     const groupsList = document.getElementById('groups');
     if (groupsList) {
         groupsList.addEventListener('click', async (e) => {
@@ -221,16 +263,14 @@ export function initMessages({ socket } = {}) {
             item.classList.add('active');
             const chatId = item.dataset.id;
             window.AVChat.currentChat = { type: 'group', id: chatId };
-            persistCurrentChat(); // <- persist selection
+            persistCurrentChat();
             const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'none';
             await loadMessages('group', chatId);
-            // focus input only when user clicked to open this convo
             if (input) input.focus();
             window.AVChat.showDeleteFor('group', chatId);
         });
     }
 
-    // send handler
     if (form) {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -270,7 +310,6 @@ export function initMessages({ socket } = {}) {
         });
     }
 
-    // realtime incoming
     if (socket) {
         socket.on('chat message', (data) => {
             if (!data || !data.chat) return;
@@ -306,7 +345,6 @@ export function initMessages({ socket } = {}) {
             }
         });
 
-        // clear persisted chat if conversation deleted remotely
         socket.on('conversation-deleted', (data) => {
             try {
                 if (!data) return;
@@ -316,17 +354,13 @@ export function initMessages({ socket } = {}) {
                     persistCurrentChat();
                     const chatBox = document.getElementById('chat-box');
                     if (chatBox) chatBox.innerHTML = '<div class="system-message">Bạn đã xóa cuộc trò chuyện này.</div>';
-                    // remove active class on sidebar item
                     const li = document.querySelector(`.chat-item[data-id="${data.chatId}"]`);
                     if (li) li.classList.remove('active');
                 }
             } catch (e) { /* noop */ }
         });
-
-        // NOTE: removed 'message-sent' handler — no transient "Tin nhắn đã gửi" UI.
     }
 
-    // Emoji picker
     function renderEmojiPicker() {
         if (!emojiPicker) return;
         emojiPicker.innerHTML = '';
@@ -383,3 +417,152 @@ export function initMessages({ socket } = {}) {
 
     return { loadMessages, appendMessage, renderMessages };
 }
+
+// --- Friends Logic ---
+function initFriends({ socket } = {}) {
+    const searchBtn = document.getElementById('search-btn');
+    const searchInput = document.getElementById('search-user');
+    const sidebar = document.querySelector('.chat-sidebar');
+
+    function debounce(fn, wait = 300) {
+        let t;
+        return (...args) => {
+            clearTimeout(t);
+            t = setTimeout(() => fn(...args), wait);
+        };
+    }
+
+    async function doSearch(username) {
+        if (!username) return;
+        const res = await fetch(`/api/friends/search-user?username=${encodeURIComponent(username)}`, { method: 'GET', credentials: 'same-origin' });
+        if (res.status === 401) return window.location.href = '/login';
+        return res.json();
+    }
+
+    function renderSearchResult(data) {
+        const old = document.getElementById('profile-search-result');
+        if (old) old.remove();
+        let html = '';
+        if (data.error) {
+            html = `<div class="system-message">${data.error}</div>`;
+        } else {
+            const btnHtml = data.pending
+                ? `<button id="cancel-friend-btn" class="btn" data-id="${data._id}" style="background:#ef4444;">Thu hồi</button>`
+                : `<button id="add-friend-btn" class="btn" data-id="${data._id}">Gửi kết bạn</button>`;
+            html = `
+				<div class="profile-search" id="profile-search-result">
+					<img src="${data.avatar}" class="avatar" style="width:48px;height:48px;">
+					<div class="profile-info">
+						<div class="profile-username">${data.username}</div>
+						${btnHtml}
+					</div>
+				</div>`;
+        }
+        if (sidebar && sidebar.querySelector('.friend-list')) {
+            sidebar.querySelector('.friend-list').insertAdjacentHTML('afterbegin', html);
+            const addBtn = document.getElementById('add-friend-btn');
+            if (addBtn) addBtn.onclick = async () => {
+                const toId = addBtn.dataset.id;
+                addBtn.disabled = true;
+                try {
+                    const r = await fetch('/api/friends/add-friend', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ toId })
+                    });
+                    if (r.status === 401) return window.location.href = '/login';
+                    const jr = await r.json();
+                    addBtn.textContent = jr.error ? jr.error : 'Đã gửi!';
+                } catch (err) {
+                    console.error(err);
+                    addBtn.textContent = 'Lỗi';
+                }
+                setTimeout(() => { const profileDiv = document.getElementById('profile-search-result'); if (profileDiv) profileDiv.remove(); searchInput.value = ''; }, 900);
+            };
+            const cancelBtn = document.getElementById('cancel-friend-btn');
+            if (cancelBtn) cancelBtn.onclick = async () => {
+                const toId = cancelBtn.dataset.id;
+                cancelBtn.disabled = true;
+                try {
+                    const r = await fetch('/api/friends/cancel-friend-request', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ toId })
+                    });
+                    if (r.status === 401) return window.location.href = '/login';
+                } catch (err) { console.error(err); }
+                cancelBtn.textContent = 'Đã thu hồi!';
+                setTimeout(() => { const profileDiv = document.getElementById('profile-search-result'); if (profileDiv) profileDiv.remove(); searchInput.value = ''; }, 900);
+            };
+        }
+    }
+
+    const debouncedSearch = debounce(async () => {
+        const username = searchInput.value.trim();
+        if (!username) return;
+        try {
+            const data = await doSearch(username);
+            renderSearchResult(data);
+        } catch (err) {
+            if (sidebar && sidebar.querySelector('.friend-list')) sidebar.querySelector('.friend-list').insertAdjacentHTML('afterbegin', `<div class="system-message">Lỗi kết nối server!</div>`);
+        }
+    }, 300);
+
+    if (searchBtn && searchInput) {
+        searchBtn.onclick = (e) => { e.preventDefault(); debouncedSearch(); };
+        searchInput.onkeyup = () => debouncedSearch();
+    }
+
+    if (socket) {
+        socket.on('friend-request', (data) => {
+            if (String(data.toId) !== String(window.userId)) return;
+            const popup = document.createElement('div');
+            popup.className = 'friend-request-popup';
+            popup.innerHTML = `
+				<div class="friend-request-modal">
+					<div class="friend-request-title">Bạn có lời mời kết bạn mới!</div>
+					<div class="friend-request-user">
+						<img src="${data.fromUser.avatar}" class="avatar" style="width:38px;height:38px;">
+						<span>${data.fromUser.username}</span>
+					</div>
+					<div class="friend-request-actions">
+						<button class="btn" id="accept-friend-btn">Chấp nhận</button>
+						<button class="btn" id="reject-friend-btn" style="background:#ef4444;">Từ chối</button>
+					</div>
+				</div>`;
+            document.body.appendChild(popup);
+            popup.querySelector('#accept-friend-btn').onclick = async () => {
+                await fetch('/api/friends/accept-friend-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ requestId: data.requestId }) }).catch(() => { });
+                popup.remove();
+                location.reload();
+            };
+            popup.querySelector('#reject-friend-btn').onclick = () => { popup.remove(); };
+        });
+
+        socket.on('friend-accepted', (data) => {
+            if (String(data.toId) !== String(window.userId)) return;
+            const popup = document.createElement('div');
+            popup.className = 'friend-request-popup';
+            popup.innerHTML = `
+				<div class="friend-request-modal">
+					<div class="friend-request-title">Lời mời của bạn đã được chấp nhận!</div>
+					<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+						<img src="${data.fromUser.avatar || '/public/avatar.png'}" class="avatar" style="width:38px;height:38px;">
+						<div style="font-weight:700;color:#4f8cff;">${data.fromUser.username}</div>
+					</div>
+					<div class="friend-request-actions">
+						<button class="btn" id="close-accepted-btn">Đóng</button>
+					</div>
+				</div>`;
+            document.body.appendChild(popup);
+            popup.querySelector('#close-accepted-btn').onclick = () => { popup.remove(); location.reload(); };
+            setTimeout(() => { if (popup.parentNode) popup.remove(); location.reload(); }, 2000);
+        });
+    }
+}
+
+// --- Bootstrap ---
+initMessages({ socket });
+initFriends({ socket });

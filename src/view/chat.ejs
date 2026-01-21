@@ -28,7 +28,7 @@
             <div class="header-actions">
                 <button class="icon-btn" title="Thông báo">🔔</button>
                 <button class="icon-btn" title="Cài đặt">⚙️</button>
-                <form method="POST" action="/auth/logout" class="logout-form" style="display:inline;">
+                <form method="POST" action="/logout" class="logout-form" style="display:inline;">
                     <button type="submit">Đăng xuất</button>
                 </form>
             </div>
@@ -131,17 +131,11 @@
 
     <!-- socket + ui modal lib -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/ui.modals.js"></script>
-
     <script type="module">
-        import { socket, register } from '/js/socket-client.mjs';
-        import { initMessages } from '/js/messages.mjs';
-        import { initFriends } from '/js/friends.mjs';
+        import '/js/app.mjs';
 
-        // register socket and init modules
-        if (window.userId) register(window.userId);
-        initMessages({ socket });
-        initFriends({ socket });
+        // Wait for app.mjs to initialize socketClient
+        const socket = window.socketClient ? window.socketClient.socket : null;
 
         // helpers
         const deleteBtn = document.getElementById('delete-convo-btn');
@@ -340,7 +334,8 @@
                             li.innerHTML = `<span style="flex:1;">${j.group.name}</span><button class="delete-group-btn" data-id="${j.group._id}" title="Xóa lịch sử nhóm" style="margin-left:8px;background:transparent;border:none;color:#ef4444;cursor:pointer;">🗑️</button>`;
                             ul.insertBefore(li, ul.firstChild);
                             li.click();
-                            if (socket && socket.emit) socket.emit('join-group', String(j.group._id));
+                            const s = window.socketClient && window.socketClient.socket;
+                            if (s && s.emit) s.emit('join-group', String(j.group._id));
                         }
                         if (modal) modal.style.display = 'none';
                     } else {

@@ -3,6 +3,11 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 
 exports.register = async ({ username, email, password }) => {
+    if (!username || !email || !password) {
+        const e = new Error('Vui lòng điền đầy đủ thông tin');
+        e.status = 400;
+        throw e;
+    }
     if (mongoose.connection.readyState !== 1) {
         const e = new Error('Database not connected — set MONGO_URI in .env and restart the server');
         e.status = 500;

@@ -10,7 +10,7 @@ exports.list = asyncHandler(async (req, res) => {
 
 exports.getProfile = asyncHandler(async (req, res) => {
     const sessionUser = req.session && req.session.user;
-    if (!sessionUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    if (!sessionUser) return response.err(res, 'Unauthorized', 401);
     const user = await userService.getById(sessionUser._id);
     return response.ok(res, { user });
 });

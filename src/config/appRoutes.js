@@ -8,10 +8,9 @@ function setupRoutes(app) {
     // Page routes
     app.use('/', require('../routes/home'));
 
-    // Auth routes (handles /login, /register, /auth/login, /auth/register)
+    // Auth routes (handles /login, /register, /logout)
     const authRouter = require('../routes/auth');
     app.use('/', authRouter);
-    app.use('/auth', authRouter);
 
     // API routes (aggregated under /api)
     app.use('/api', require('../routes/api'));

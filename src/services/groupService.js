@@ -2,7 +2,53 @@ const mongoose = require('mongoose');
 const Group = require('../models/Group');
 const User = require('../models/User');
 const Message = require('../models/Message');
-const messageService = require('./messageService');
+
+exports.listGroups = async () => {
+    return Group.find({}).select('name members createdAt');
+};
+
+exports.createGroup = async ({ name, members, creatorId, io }) => {
+    const selected = Array.isArray(members) ? members.map(String).filter(Boolean) : [];
+    if (!name || !selected.length) throw new Error('Missing name or members');
+    if (selected.length < 2) throw new Error('Chọn ít nhất 2 bạn để tạo nhóm');
+
+    const allMembers = Array.from(new Set([creatorId, ...selected]));
+
+    const group = await Group.create({ name, members: allMembers });
+
+    try {
+        await User.updateMany({ _id: { $in: allMembers } }, { $addToSet: { groups: group._id } });
+    } catch (e) {
+        console.warn('update users with group failed', e);
+    }
+
+    try {
+        if (io && typeof io.emitToUser === 'function') {
+            for (const m of allMembers) {
+                io.emitToUser(String(m), 'group-added', { group: { _id: String(group._id), name: group.name, members: allMembers } });
+            }
+        } else if (io && io.userSocketMap) {
+            for (const m of allMembers) {
+                const sid = io.userSocketMap[String(m)];
+                if (sid) io.to(sid).emit('group-added', { group: { _id: String(group._id), name: group.name, members: allMembers } });
+            }
+        }
+    } catch (e) { console.warn('emit group-added failed', e); }
+
+    return group;
+};
+
+exports.addMember = async ({ groupId, userId }) => {
+    if (!groupId || !userId) throw new Error('Missing ids');
+    await Group.findByIdAndUpdate(groupId, { $addToSet: { members: userId } });
+    await User.findByIdAndUpdate(userId, { $addToSet: { groups: groupId } });
+};
+
+exports.removeMember = async ({ groupId, userId }) => {
+    if (!groupId || !userId) throw new Error('Missing ids');
+    await Group.findByIdAndUpdate(groupId, { $pull: { members: userId } });
+    await User.findByIdAndUpdate(userId, { $pull: { groups: groupId } });
+};
 
 exports.deleteGroup = async ({ userId, groupId, io } = {}) => {
     if (!userId || !groupId) {

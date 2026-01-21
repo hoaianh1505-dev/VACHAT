@@ -13,6 +13,11 @@ exports.searchUser = async (sessionUserId, username) => {
     return { _id: user._id, username: user.username, avatar: user.avatar, pending: !!exist };
 };
 
+exports.checkRequestStatus = async (fromId, toId) => {
+    const exist = await FriendRequest.findOne({ from: fromId, to: toId, status: 'pending' });
+    return exist ? 'pending' : 'none';
+};
+
 exports.createRequest = async ({ fromId, toId, io } = {}) => {
     if (!fromId || !toId) throw new Error('Missing ids');
     const toUser = await User.findById(toId).select('_id username');

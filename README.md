@@ -1,75 +1,138 @@
 # AVChat
 
-Ứng dụng chat nhẹ (Express + Socket.IO + MongoDB). Hỗ trợ nhắn tin realtime 1:1 và nhóm, danh sách bạn bè, lưu lịch sử tin nhắn (mã hoá AES). Tính năng AI trong mã có thể bị vô hiệu hoá trên nhánh này.
+> Hệ thống nhắn tin thời gian thực được xây dựng trên Node.js và Socket.IO
 
-Nội dung nhanh
-- Server: Node.js (Express) + Socket.IO, REST API under /api, views EJS ở /src/view.
-- Client: Static JS trong /src/public (messages.mjs, friends.mjs, socket-client.mjs).
-- DB: MongoDB (Atlas hoặc self‑hosted).
+## Giới Thiệu
 
-Yêu cầu
-- Node.js >= 18
-- npm
-- MongoDB URI (Atlas hoặc local)
+AVChat là một ứng dụng nhắn tin trực tuyến hiện đại, cho phép người dùng giao tiếp tức thời thông qua tin nhắn văn bản. Dự án được phát triển dựa trên kiến trúc Client-Server, sử dụng giao thức TCP/IP để đảm bảo độ tin cậy trong truyền tải dữ liệu.
 
-Cài đặt & chạy
-1. Cài phụ thuộc:
-   npm install
+## Tính Năng
 
-2. Tạo file `.env` (không commit) với tối thiểu:
-   MONGO_URI=your_mongo_uri
-   PORT=1505
-   SESSION_SECRET=your_session_secret
+- **Xác thực người dùng**: Hệ thống đăng ký và đăng nhập an toàn với mã hóa mật khẩu
+- **Trò chuyện riêng tư**: Nhắn tin trực tiếp với bạn bè theo thời gian thực
+- **Trò chuyện nhóm**: Tạo và quản lý nhóm chat với nhiều thành viên
+- **Quản lý bạn bè**: Tìm kiếm, gửi lời mời và quản lý danh sách bạn bè
+- **Thông báo tức thì**: Nhận thông báo khi có tin nhắn mới hoặc lời mời kết bạn
+- **Giao diện thân thiện**: Thiết kế responsive tối ưu cho mọi thiết bị
 
-3. Chạy server (dev):
-   npm run dev
+## Kiến Trúc Hệ Thống
 
-4. Mở trình duyệt tới http://localhost:1505
+Hệ thống sử dụng mô hình **Client-Server** với các thành phần chính:
 
-Biến môi trường chính
-- MONGO_URI — chuỗi kết nối MongoDB (bắt buộc cho DB/session trong prod).
-- PORT — cổng server.
-- SESSION_SECRET — secret cho express-session.
-- CHAT_SECRET — (tùy) AES key để mã hoá tin nhắn.
+### Backend
+- **Framework**: Express.js (Node.js)
+- **Real-time Engine**: Socket.IO (WebSocket over TCP)
+- **Database**: MongoDB với Mongoose ODM
+- **Session Management**: Express-Session với MongoDB Store
 
-Lưu ý realtime & debug
-- Realtime hoạt động khi mọi client kết nối tới cùng 1 Socket.IO server.
-- Nếu bạn chạy 2 server local (mỗi máy 1 server), 2 client sẽ không thấy tin nhắn của nhau — cần 1 server chung hoặc dùng adapter (Redis) để đồng bộ nhiều instance.
-- Kiểm tra DevTools → Network (WS) để xác nhận socket kết nối tới đúng backend.
-- Server có helper `io.emitToUser` để gửi tới tất cả sockets của 1 user; client phải gửi userId (window.userId) hoặc gọi register(userId) sau khi connect.
+### Frontend
+- **Template Engine**: EJS (Embedded JavaScript)
+- **Styling**: CSS3
+- **Client Logic**: Vanilla JavaScript (ES6 Modules)
 
-Bảo mật
-- KHÔNG commit `.env` chứa secrets.
-- Dùng HTTPS và `SESSION_SECRET` mạnh cho production.
+### Giao Thức Truyền Thông
+- **HTTP/HTTPS**: Xử lý các request API và render trang
+- **WebSocket**: Kênh giao tiếp hai chiều cho tin nhắn thời gian thực (chạy trên TCP)
 
-Khắc phục nhanh
-- Lỗi session store / connect-mongo: kiểm tra MONGO_URI, server log báo nếu fallback sang MemoryStore.
-- Tin nhắn không realtime: kiểm tra client BACKEND_URL/socket URL, server logs (socket register), và đảm bảo cùng 1 backend.
+## Yêu Cầu Hệ Thống
 
-Cấu trúc chính
-- src/server.js — entrypoint
-- src/config — môi trường / db / socket
-- src/routes, src/controllers, src/services, src/models
-- src/public — client JS/CSS
-- src/socket — handlers Socket.IO
-- src/utils — helper
+- **Node.js**: v14.0.0 trở lên
+- **MongoDB**: v4.0 trở lên (hoặc MongoDB Atlas)
+- **npm**: v6.0.0 trở lên
 
-Góp ý & đóng góp
-- Tạo branch, commit, PR. Giữ secrets ngoài repo.
+## Cài Đặt
 
-License
-- MIT
+### 1. Sao Chép Mã Nguồn
 
----
+```bash
+git clone https://github.com/your-username/AVChat.git
+cd AVChat
+```
 
-Lightweight chat app.
+### 2. Cài Đặt Dependencies
 
-Quick start:
-1. Copy .env and set MONGO_URI, PORT, SESSION_SECRET...
-2. npm install
-3. npm run dev   # or npm start
+```bash
+npm install
+```
 
-Server entry: `src/server.js`
-Socket handlers: `src/socket/socketHandlers.js`
+### 3. Cấu Hình Môi Trường
 
-No UI/UX changes performed — only code cleanups and socket/router wiring.
+Tạo file `.env` trong thư mục gốc của dự án:
+
+```env
+MONGO_URI=mongodb://localhost:27017/avchat
+PORT=3000
+NODE_ENV=development
+```
+
+**Lưu ý**: 
+- Thay thế `MONGO_URI` bằng connection string của MongoDB của bạn
+- Nếu sử dụng MongoDB Atlas, sử dụng connection string được cung cấp từ Atlas
+
+### 4. Khởi Động Database
+
+Đảm bảo MongoDB đang chạy trên máy local hoặc đã thiết lập kết nối đến MongoDB Atlas.
+
+```bash
+# Nếu sử dụng MongoDB local
+mongod
+```
+
+## Sử Dụng
+
+### Chế Độ Development
+
+```bash
+npm run dev
+```
+
+Server sẽ tự động khởi động lại khi phát hiện thay đổi trong mã nguồn.
+
+### Chế Độ Production
+
+```bash
+npm start
+```
+
+### Truy Cập Ứng Dụng
+
+Mở trình duyệt và truy cập: `http://localhost:3000`
+
+## Hướng Dẫn Sử Dụng
+
+1. **Đăng ký tài khoản**: Nhấp vào "Đăng ký" và điền thông tin cá nhân
+2. **Đăng nhập**: Sử dụng email và mật khẩu đã đăng ký
+3. **Tìm kiếm bạn bè**: Sử dụng thanh tìm kiếm để tìm người dùng theo username
+4. **Gửi lời mời kết bạn**: Nhấp "Gửi kết bạn" trên hồ sơ người dùng
+5. **Chấp nhận lời mời**: Kiểm tra thông báo và chấp nhận lời mời kết bạn
+6. **Bắt đầu trò chuyện**: Chọn bạn bè từ danh sách để bắt đầu nhắn tin
+7. **Tạo nhóm chat**: Nhấp "Tạo nhóm mới", chọn thành viên và đặt tên nhóm
+
+## Cấu Trúc Dự Án
+
+```
+AVChat/
+├── src/
+│   ├── config/          # Cấu hình database, session, middleware
+│   ├── controllers/     # Xử lý logic điều khiển
+│   ├── middleware/      # Middleware xác thực và xử lý lỗi
+│   ├── models/          # Schema MongoDB
+│   ├── routes/          # Định nghĩa API endpoints
+│   ├── services/        # Business logic layer
+│   ├── utils/           # Tiện ích và helper functions
+│   ├── public/          # Static assets (CSS, JS, images)
+│   ├── view/            # EJS templates
+│   └── server.js        # Entry point
+├── .env                 # Biến môi trường
+├── package.json         # Dependencies và scripts
+└── README.md           # Tài liệu dự án
+```
+
+## Nhóm Phát Triển
+
+- **Đỗ Hoài Anh**
+- **Trương Văn Triều Vĩ**
+
+## Giấy Phép
+
+© 2026 AVChat Project. All rights reserved.
