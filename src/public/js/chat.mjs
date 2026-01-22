@@ -217,7 +217,7 @@ export function initMessages({ socket } = {}) {
             if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             return;
         }
-        setInputVisible(chatType === 'friend');
+        setInputVisible(chatType === 'friend' || chatType === 'group');
         setSendEnabled(false);
         showLoading();
         try {
@@ -278,7 +278,7 @@ export function initMessages({ socket } = {}) {
                 }
                 window.VAChat.currentChat = { type: last.type, id: last.id };
                 setPrivateActive(last.type === 'friend');
-                setInputVisible(last.type === 'friend');
+                setInputVisible(last.type === 'friend' || last.type === 'group');
                 setTimeout(() => { loadMessages(last.type, last.id).catch(() => { }); }, 120);
             }
         }
@@ -369,7 +369,7 @@ export function initMessages({ socket } = {}) {
             await loadMessages('group', chatId);
             if (input) input.focus();
             window.VAChat.showDeleteFor('group', chatId);
-            setInputVisible(false);
+            setInputVisible(true);
         });
     }
 
