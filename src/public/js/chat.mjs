@@ -80,6 +80,7 @@ export function initMessages({ socket } = {}) {
     function hideFloatingTooltip() {
         if (floatingTooltip) floatingTooltip.style.display = 'none';
     }
+    const privateChatItem = document.getElementById('private-chat-item');
     if (createGroupBtn) {
         createGroupBtn.addEventListener('mouseenter', () => {
             const text = createGroupBtn.getAttribute('data-tooltip') || 'Tạo nhóm Chat mới';
@@ -88,6 +89,29 @@ export function initMessages({ socket } = {}) {
         createGroupBtn.addEventListener('mouseleave', hideFloatingTooltip);
         createGroupBtn.addEventListener('blur', hideFloatingTooltip);
         window.addEventListener('scroll', hideFloatingTooltip, true);
+    }
+    function setPrivateActive(active) {
+        if (!privateChatItem) return;
+        privateChatItem.classList.toggle('active', !!active);
+    }
+    if (privateChatItem) {
+        privateChatItem.addEventListener('mouseenter', () => {
+            const text = privateChatItem.getAttribute('data-tooltip') || 'Tin nhắn riêng tư';
+            showFloatingTooltip(privateChatItem, text);
+        });
+        privateChatItem.addEventListener('mouseleave', hideFloatingTooltip);
+        privateChatItem.addEventListener('blur', hideFloatingTooltip);
+        privateChatItem.addEventListener('click', () => {
+            document.querySelectorAll('.chat-item.active').forEach(n => n.classList.remove('active'));
+            setPrivateActive(true);
+            window.VAChat = window.VAChat || {};
+            window.VAChat.currentChat = null;
+            persistCurrentChat();
+            const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'flex';
+            const chatBox = document.getElementById('chat-box'); if (chatBox) chatBox.innerHTML = '<div class="system-message">Chọn bạn bè để bắt đầu nhắn tin.</div>';
+            const dd = getDeleteBtn(); if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
+            setInputVisible(false);
+        });
     }
 
     window.VAChat = window.VAChat || {};
@@ -166,6 +190,11 @@ export function initMessages({ socket } = {}) {
         if (input) input.disabled = !enabled;
     }
 
+    function setInputVisible(visible) {
+        if (!form) return;
+        form.style.display = visible ? 'flex' : 'none';
+    }
+
     function showLoading() {
         if (!chatBox) return;
         const el = document.createElement('div');
@@ -183,10 +212,12 @@ export function initMessages({ socket } = {}) {
     async function loadMessages(chatType, chatId) {
         if (!chatType || !chatId) {
             setSendEnabled(false);
+            setInputVisible(false);
             const dd = getDeleteBtn();
             if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             return;
         }
+        setInputVisible(chatType === 'friend');
         setSendEnabled(false);
         showLoading();
         try {
@@ -226,11 +257,19 @@ export function initMessages({ socket } = {}) {
     }
     window.addEventListener('beforeunload', persistCurrentChat);
 
+    let savedChat = null;
     try {
         const saved = localStorage.getItem('vachat.lastChat');
         if (saved) {
-            const last = JSON.parse(saved);
-            if (last && last.type && last.id) {
+            savedChat = JSON.parse(saved);
+            const last = savedChat;
+            if (last && last.type === 'group') {
+                // default to private chat instead of last group
+                setPrivateActive(true);
+                window.VAChat.currentChat = null;
+                const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'flex';
+                setInputVisible(false);
+            } else if (last && last.type && last.id) {
                 const sel = last.type === 'friend' ? `.chat-item.friend-profile[data-id="${String(last.id)}"]` : `.chat-item[data-type="group"][data-id="${String(last.id)}"]`;
                 const el = document.querySelector(sel);
                 if (el) {
@@ -238,10 +277,17 @@ export function initMessages({ socket } = {}) {
                     el.classList.add('active');
                 }
                 window.VAChat.currentChat = { type: last.type, id: last.id };
+                setPrivateActive(last.type === 'friend');
+                setInputVisible(last.type === 'friend');
                 setTimeout(() => { loadMessages(last.type, last.id).catch(() => { }); }, 120);
             }
         }
     } catch (e) { /* noop */ }
+
+    if (!savedChat) {
+        setPrivateActive(true);
+        setInputVisible(false);
+    }
 
     window.VAChat = window.VAChat || {};
     window.VAChat.loadMessages = loadMessages;
@@ -255,6 +301,7 @@ export function initMessages({ socket } = {}) {
             if (!item) return;
             document.querySelectorAll('.chat-item.friend-profile.active').forEach(n => n.classList.remove('active'));
             item.classList.add('active');
+            setPrivateActive(false);
             const chatId = item.dataset.id;
             window.VAChat.currentChat = { type: 'friend', id: chatId };
             persistCurrentChat();
@@ -314,6 +361,7 @@ export function initMessages({ socket } = {}) {
             if (!item) return;
             document.querySelectorAll('.chat-item.active').forEach(n => n.classList.remove('active'));
             item.classList.add('active');
+            setPrivateActive(false);
             const chatId = item.dataset.id;
             window.VAChat.currentChat = { type: 'group', id: chatId };
             persistCurrentChat();
@@ -321,6 +369,7 @@ export function initMessages({ socket } = {}) {
             await loadMessages('group', chatId);
             if (input) input.focus();
             window.VAChat.showDeleteFor('group', chatId);
+            setInputVisible(false);
         });
     }
 
