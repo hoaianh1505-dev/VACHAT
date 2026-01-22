@@ -1,7 +1,7 @@
 {
-  "name": "avchat",
+  "name": "vachat",
   "version": "1.0.0",
-  "description": "AVChat - lightweight chat app",
+  "description": "VAChat - lightweight chat app",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

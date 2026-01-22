@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Chat - AVChat</title>
+    <title>Chat - VAChat</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 
@@ -35,6 +35,28 @@
         </header>
 
         <div class="chat-body">
+            <aside class="group-sidebar">
+                <div class="group-list">
+                    <h3>Nhóm chat</h3>
+                    <ul id="groups">
+                        <% (groups || []).forEach(group=> { %>
+                            <li class="chat-item" data-type="group" data-id="<%= group._id %>">
+                                <span style="flex:1;">
+                                    <%= group.name %>
+                                </span>
+                                <span class="group-status-icon" aria-hidden="true">🔕</span>
+                            </li>
+                            <% }) %>
+                    </ul>
+                </div>
+
+                <div style="padding:0 16px 12px;">
+                    <button id="create-group-btn" class="btn"
+                        style="width:100%;padding:8px 12px;background:#7c3aed;color:#fff;border-radius:8px;border:none;">Tạo
+                        nhóm mới</button>
+                </div>
+            </aside>
+
             <aside class="chat-sidebar">
                 <div class="search-box">
                     <input type="text" id="search-user" placeholder="Tìm bạn..." autocomplete="off" />
@@ -63,27 +85,6 @@
                             </li>
                             <% }) %>
                     </ul>
-                </div>
-
-                <div class="group-list">
-                    <h3>Nhóm chat</h3>
-                    <ul id="groups">
-                        <% (groups || []).forEach(group=> { %>
-                            <li class="chat-item" data-type="group" data-id="<%= group._id %>">
-                                <span style="flex:1;">
-                                    <%= group.name %>
-                                </span>
-                                <button class="delete-group-btn" data-id="<%= group._id %>" title="Xóa lịch sử nhóm"
-                                    style="margin-left:8px;background:transparent;border:none;color:#ef4444;cursor:pointer;">🗑️</button>
-                            </li>
-                            <% }) %>
-                    </ul>
-                </div>
-
-                <div style="padding:0 24px 12px;">
-                    <button id="create-group-btn" class="btn"
-                        style="width:100%;padding:8px 12px;background:#7c3aed;color:#fff;border-radius:8px;border:none;">Tạo
-                        nhóm mới</button>
                 </div>
             </aside>
 
@@ -127,6 +128,15 @@
                     nhất 2 bạn)</button>
             </div>
         </div>
+    </div>
+
+    <!-- group context menu -->
+    <div id="group-context-menu" class="context-menu" style="display:none;">
+        <button type="button" class="context-menu-item" data-action="mark-read">Đánh dấu đã đọc</button>
+        <button type="button" class="context-menu-item" data-action="toggle-mute">Im lặng</button>
+        <button type="button" class="context-menu-item" data-action="toggle-pin">Ghim</button>
+        <div class="context-menu-divider"></div>
+        <button type="button" class="context-menu-item danger" data-action="leave-group">Rời nhóm chat</button>
     </div>
 
     <!-- socket + ui modal lib -->
@@ -193,8 +203,8 @@
                     const chatBox = document.getElementById('chat-box');
                     if (chatBox) chatBox.innerHTML = '<div class="system-message">Bạn đã xóa cuộc trò chuyện này.</div>';
                     hideDelete();
-                    window.AVChat = window.AVChat || {};
-                    window.AVChat.currentChat = null;
+                    window.VAChat = window.VAChat || {};
+                    window.VAChat.currentChat = null;
                     const li = document.querySelector(`.chat-item[data-id="${chatId}"]`);
                     if (li) li.classList.remove('active');
                 } else {
@@ -208,8 +218,8 @@
         if (deleteBtn) {
             deleteBtn.addEventListener('click', async (ev) => {
                 ev.stopPropagation();
-                const chatType = deleteBtn.dataset.chatType || (window.AVChat && window.AVChat.currentChat && window.AVChat.currentChat.type);
-                const chatId = deleteBtn.dataset.chatId || (window.AVChat && window.AVChat.currentChat && window.AVChat.currentChat.id);
+                const chatType = deleteBtn.dataset.chatType || (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type);
+                const chatId = deleteBtn.dataset.chatId || (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.id);
                 await doDeleteConversation(chatType, chatId);
             });
         }
@@ -271,8 +281,8 @@
                         const chatBox = document.getElementById('chat-box');
                         if (chatBox) chatBox.innerHTML = '<div class="system-message">Nhóm đã bị xóa.</div>';
                         hideDelete();
-                        window.AVChat = window.AVChat || {};
-                        window.AVChat.currentChat = null;
+                        window.VAChat = window.VAChat || {};
+                        window.VAChat.currentChat = null;
                     }
                     if (window.UI && window.UI.alert) await window.UI.alert('Xóa nhóm thành công');
                 } else {

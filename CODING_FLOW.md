@@ -1,4 +1,4 @@
-# Phân Tích Chi Tiết Codebase AVChat
+# Phân Tích Chi Tiết Codebase VAChat
 
 Tài liệu này giải thích tường tận luồng đi của dữ liệu từ lúc bạn chạy `npm run dev` cho đến khi tin nhắn được gửi đi.
 
