@@ -132,7 +132,3 @@ AVChat/
 
 - **Đỗ Hoài Anh**
 - **Trương Văn Triều Vĩ**
-
-## Giấy Phép
-
-© 2026 AVChat Project. All rights reserved.

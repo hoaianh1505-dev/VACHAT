@@ -5,8 +5,8 @@ const validation = require('../middleware/validation');
 
 // Pages
 router.get('/login', authController.showLogin);
-router.get('/register', authController.showRegister);
 
+router.get('/register', authController.showRegister);
 // Register
 router.post('/register', validation.register, authController.register);
 

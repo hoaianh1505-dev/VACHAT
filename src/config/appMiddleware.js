@@ -31,10 +31,6 @@ function setupMiddleware(app, io) {
         app.set('trust proxy', 1);
     }
 
-    // Custom middleware
-    app.use(middleware.requestLogger);
-    app.use(middleware.cors);
-
     // View engine
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, '..', 'view'));

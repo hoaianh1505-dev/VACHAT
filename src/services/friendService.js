@@ -115,3 +115,10 @@ exports.rejectRequest = async ({ requestId, userId } = {}) => {
     await request.save();
     return request;
 };
+
+exports.removeFriend = async ({ userId, friendId } = {}) => {
+    if (!userId || !friendId) throw new Error('Missing ids');
+    // Remove from both users' friends list
+    await User.findByIdAndUpdate(userId, { $pull: { friends: friendId } });
+    await User.findByIdAndUpdate(friendId, { $pull: { friends: userId } });
+};

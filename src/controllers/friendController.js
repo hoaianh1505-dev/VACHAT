@@ -1,5 +1,4 @@
 const friendService = require('../services/friendService');
-const userService = require('../services/userService');
 const asyncHandler = require('../utils/asyncHandler');
 const response = require('../utils/response');
 
@@ -69,6 +68,7 @@ exports.rejectFriendRequest = asyncHandler(async (req, res) => {
 exports.removeFriend = asyncHandler(async (req, res) => {
     const userId = req.session.user && req.session.user._id;
     const { friendId } = req.body;
-    await userService.removeFriend(userId, friendId);
+    // Updated to use friendService instead of userService
+    await friendService.removeFriend({ userId, friendId });
     return response.ok(res, { success: true });
 });

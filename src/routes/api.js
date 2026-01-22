@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
-// API root + health
+
+// Root endpoints
 router.get('/', (req, res) => res.json({ success: true, name: 'AVChat API', version: '1.0.0' }));
 router.get('/status', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// mount sub-routers (keep paths consistent with existing controllers)
+// Sub-routers
 router.use('/users', require('./users'));
 router.use('/messages', require('./messages'));
 router.use('/groups', require('./groups'));

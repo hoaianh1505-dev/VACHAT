@@ -7,3 +7,7 @@ yarn-error.log*
 .DS_Store
 dist/
 coverage/
+
+# Documentation files (local only)
+PROJECT_WALKTHROUGH.md
+ROUTING_GUIDE.md

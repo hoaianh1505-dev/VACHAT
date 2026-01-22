@@ -1,21 +1,20 @@
 const middleware = require('../middleware');
 
 /**
- * Mount all application routes
+ * Central routing configuration
  * @param {Express} app - Express application instance
  */
 function setupRoutes(app) {
-    // Page routes
+    // Page routes (Home, Chat)
     app.use('/', require('../routes/home'));
 
-    // Auth routes (handles /login, /register, /logout)
-    const authRouter = require('../routes/auth');
-    app.use('/', authRouter);
+    // Authentication routes (Login, Register, Logout)
+    app.use('/', require('../routes/auth'));
 
-    // API routes (aggregated under /api)
+    // API routes (prefixed with /api)
     app.use('/api', require('../routes/api'));
 
-    // Error handler (must be last)
+    // Global Error Handler (must be last)~
     app.use(middleware.errorHandler);
 }
 
