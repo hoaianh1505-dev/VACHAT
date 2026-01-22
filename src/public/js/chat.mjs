@@ -8,6 +8,7 @@ export function initMessages({ socket } = {}) {
     const sendBtn = document.getElementById('send-btn');
     const emojiBtn = document.getElementById('emoji-btn');
     const emojiPicker = document.getElementById('emoji-picker');
+    const createGroupBtn = document.getElementById('create-group-btn');
 
     function getDeleteBtn() { return document.getElementById('delete-convo-btn'); }
     const EMOJIS = ['😀', '😂', '😍', '👍', '🎉', '🔥', '🙏', '😢', '😎', '🤔', '😅', '👏', '💯', '🎁', '🥳'];
@@ -37,6 +38,56 @@ export function initMessages({ socket } = {}) {
 
     function escapeHtml(str) {
         return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // Floating tooltip for create group button
+    let floatingTooltip;
+    function ensureFloatingTooltip() {
+        if (floatingTooltip) return floatingTooltip;
+        const el = document.createElement('div');
+        el.className = 'floating-tooltip';
+        el.style.display = 'none';
+        document.body.appendChild(el);
+        floatingTooltip = el;
+        return el;
+    }
+    function showFloatingTooltip(target, text) {
+        if (!target) return;
+        const tip = ensureFloatingTooltip();
+        tip.textContent = text || '';
+        tip.style.display = 'block';
+        const rect = target.getBoundingClientRect();
+        const offset = 10;
+        let left = rect.right + offset;
+        let top = rect.top + rect.height / 2;
+        tip.style.left = `${left}px`;
+        tip.style.top = `${top}px`;
+        tip.style.transform = 'translateY(-50%)';
+        requestAnimationFrame(() => {
+            const tRect = tip.getBoundingClientRect();
+            const maxX = window.innerWidth - tRect.width - 8;
+            const maxY = window.innerHeight - tRect.height - 8;
+            if (left > maxX) left = rect.left - tRect.width - offset;
+            if (left < 8) left = 8;
+            let y = top - tRect.height / 2;
+            if (y < 8) y = 8;
+            if (y > maxY) y = maxY;
+            tip.style.left = `${left}px`;
+            tip.style.top = `${y}px`;
+            tip.style.transform = 'none';
+        });
+    }
+    function hideFloatingTooltip() {
+        if (floatingTooltip) floatingTooltip.style.display = 'none';
+    }
+    if (createGroupBtn) {
+        createGroupBtn.addEventListener('mouseenter', () => {
+            const text = createGroupBtn.getAttribute('data-tooltip') || 'Tạo nhóm Chat mới';
+            showFloatingTooltip(createGroupBtn, text);
+        });
+        createGroupBtn.addEventListener('mouseleave', hideFloatingTooltip);
+        createGroupBtn.addEventListener('blur', hideFloatingTooltip);
+        window.addEventListener('scroll', hideFloatingTooltip, true);
     }
 
     window.VAChat = window.VAChat || {};
@@ -239,6 +290,23 @@ export function initMessages({ socket } = {}) {
     if (groupsList) {
         Array.from(groupsList.querySelectorAll('.chat-item[data-type="group"]')).forEach(applyGroupState);
         sortGroups();
+
+        // Tooltip for group name on hover
+        groupsList.addEventListener('mouseover', (e) => {
+            const item = e.target.closest('.chat-item[data-type="group"]');
+            if (!item) return;
+            const name = item.dataset.groupName || '';
+            if (!name) return;
+            const avatar = item.querySelector('.group-avatar') || item;
+            showFloatingTooltip(avatar, name);
+        });
+        groupsList.addEventListener('mouseout', (e) => {
+            const item = e.target.closest('.chat-item[data-type="group"]');
+            if (!item) return;
+            const related = e.relatedTarget;
+            if (related && item.contains(related)) return;
+            hideFloatingTooltip();
+        });
     }
     if (groupsList) {
         groupsList.addEventListener('click', async (e) => {

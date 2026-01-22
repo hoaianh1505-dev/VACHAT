@@ -36,24 +36,22 @@
 
         <div class="chat-body">
             <aside class="group-sidebar">
-                <div class="group-list">
+                <div class="group-list scrollable">
                     <h3>Nhóm chat</h3>
                     <ul id="groups">
                         <% (groups || []).forEach(group=> { %>
-                            <li class="chat-item" data-type="group" data-id="<%= group._id %>">
-                                <span style="flex:1;">
-                                    <%= group.name %>
-                                </span>
-                                <span class="group-status-icon" aria-hidden="true">🔕</span>
+                            <% const gName = (group && group.name) ? String(group.name) : 'Group';
+                               const gInitials = gName.trim().slice(0, 2).toUpperCase(); %>
+                            <li class="chat-item" data-type="group" data-id="<%= group._id %>" data-group-name="<%= gName %>">
+                                <span class="group-avatar" title="<%= gName %>"><%= gInitials || 'GC' %></span>
+                                <span class="group-status-icon" aria-hidden="true">🔇</span>
                             </li>
                             <% }) %>
                     </ul>
-                </div>
 
-                <div style="padding:0 16px 12px;">
-                    <button id="create-group-btn" class="btn"
-                        style="width:100%;padding:8px 12px;background:#7c3aed;color:#fff;border-radius:8px;border:none;">Tạo
-                        nhóm mới</button>
+                    <div class="group-create-wrap">
+                        <button id="create-group-btn" class="group-create-btn" data-tooltip="Tạo nhóm Chat mới" aria-label="Tạo nhóm Chat mới">+</button>
+                    </div>
                 </div>
             </aside>
 
@@ -338,10 +336,25 @@
                         const ul = document.getElementById('groups');
                         if (ul) {
                             const li = document.createElement('li');
+                            const gName = (j.group && j.group.name) ? String(j.group.name) : 'Group';
+                            const gInitials = gName.trim().slice(0, 2).toUpperCase();
                             li.className = 'chat-item';
                             li.dataset.type = 'group';
                             li.dataset.id = String(j.group._id);
-                            li.innerHTML = `<span style="flex:1;">${j.group.name}</span><button class="delete-group-btn" data-id="${j.group._id}" title="Xóa lịch sử nhóm" style="margin-left:8px;background:transparent;border:none;color:#ef4444;cursor:pointer;">🗑️</button>`;
+                            li.dataset.groupName = gName;
+
+                            const avatar = document.createElement('span');
+                            avatar.className = 'group-avatar';
+                            avatar.title = gName;
+                            avatar.textContent = gInitials || 'GC';
+
+                            const status = document.createElement('span');
+                            status.className = 'group-status-icon';
+                            status.setAttribute('aria-hidden', 'true');
+                            status.textContent = '🔇';
+
+                            li.appendChild(avatar);
+                            li.appendChild(status);
                             ul.insertBefore(li, ul.firstChild);
                             li.click();
                             const s = window.socketClient && window.socketClient.socket;
