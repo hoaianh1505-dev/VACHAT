@@ -51,4 +51,19 @@ module.exports = (io, socket) => {
 
     // legacy passive receiver (no-op)
     socket.on('chat message', (msg) => { /* noop - kept for compatibility */ });
+
+    // friend read receipts
+    socket.on('friend-mark-read', async (chatId, messageIds = []) => {
+        try {
+            if (!socket.userId || !chatId || !Array.isArray(messageIds) || !messageIds.length) return;
+            await messageService.markRead({ messageIds, userId: String(socket.userId) });
+            if (typeof io.emitToUser === 'function') {
+                io.emitToUser(String(chatId), 'friend-read-receipt', { chatId: String(socket.userId), readerId: String(socket.userId), messageIds });
+            } else if (io.userSocketMap && io.userSocketMap[String(chatId)]) {
+                io.to(io.userSocketMap[String(chatId)]).emit('friend-read-receipt', { chatId: String(socket.userId), readerId: String(socket.userId), messageIds });
+            }
+        } catch (e) {
+            console.warn('friend-mark-read error', e);
+        }
+    });
 };

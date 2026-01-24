@@ -43,6 +43,7 @@ exports.createMessage = async ({ chatType, chatId, fromId, toId, content, io } =
     if (io) {
         const plain = (() => { try { return decryptMessage(encrypted); } catch (e) { return '[unable to decrypt]'; } })();
         const basePayload = {
+            messageId: String(msg._id),
             chat: { type: chatType, id: String(chatId), conversationId: convId },
             message: plain,
             from: String(fromId),

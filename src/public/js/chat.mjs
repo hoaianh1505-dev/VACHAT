@@ -33,6 +33,12 @@ export function initMessages({ socket } = {}) {
         return null;
     }
 
+    function emitFriendMarkRead(chatId, messageIds) {
+        if (!socket || !socket.emit) return;
+        if (!chatId || !Array.isArray(messageIds) || !messageIds.length) return;
+        socket.emit('friend-mark-read', String(chatId), messageIds.map(String));
+    }
+
     function toDayNumber(d) {
         const dt = (d instanceof Date) ? d : new Date(d);
         if (Number.isNaN(dt.getTime())) return null;
@@ -226,6 +232,7 @@ export function initMessages({ socket } = {}) {
         ensureDateSeparator(ts);
         const div = document.createElement('div');
         div.className = 'message' + (payload.isSelf ? ' self' : '');
+        if (payload.messageId || payload._id) div.dataset.messageId = String(payload.messageId || payload._id);
         const text = payload.message || payload.content || '';
         const timeLabel = formatTimeLabel(ts);
         if (!payload.isSelf) {
@@ -260,6 +267,65 @@ export function initMessages({ socket } = {}) {
         if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type && window.VAChat.currentChat.id) {
             updateStreakBadge(window.VAChat.currentChat.type, window.VAChat.currentChat.id, window.VAChat.lastMessages);
         }
+
+        // auto mark read for active friend chat
+        if (!payload.isSelf && payload.chat && payload.chat.type === 'friend' && window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type === 'friend') {
+            const currentId = String(window.VAChat.currentChat.id || '');
+            if (String(payload.chat.id || '') === currentId) {
+                if (payload.messageId || payload._id) emitFriendMarkRead(currentId, [payload.messageId || payload._id]);
+            }
+        }
+
+        // update sent status for latest self message in friend chat
+        if (payload.isSelf && window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type === 'friend') {
+            updateSelfMessageStatusSent();
+        }
+    }
+
+    function clearSelfMessageStatus() {
+        if (!chatBox) return;
+        chatBox.querySelectorAll('.message-status').forEach(el => el.remove());
+    }
+
+    function getLastSelfMessageEl() {
+        if (!chatBox) return null;
+        const selfMsgs = chatBox.querySelectorAll('.message.self');
+        if (!selfMsgs || !selfMsgs.length) return null;
+        return selfMsgs[selfMsgs.length - 1];
+    }
+
+    function updateSelfMessageStatusSent() {
+        const cur = window.VAChat && window.VAChat.currentChat;
+        if (!cur || cur.type !== 'friend') return;
+        clearSelfMessageStatus();
+        const last = getLastSelfMessageEl();
+        if (!last) return;
+        const st = document.createElement('div');
+        st.className = 'message-status sent';
+        st.textContent = 'Đã gửi';
+        last.appendChild(st);
+    }
+
+    function updateSelfMessageStatusRead(friendId) {
+        const cur = window.VAChat && window.VAChat.currentChat;
+        if (!cur || cur.type !== 'friend') return;
+        if (String(cur.id) !== String(friendId)) return;
+        clearSelfMessageStatus();
+        const last = getLastSelfMessageEl();
+        if (!last) return;
+        const { avatar } = getFriendInfo(friendId);
+        const st = document.createElement('div');
+        st.className = 'message-status read';
+        if (avatar) {
+            const img = document.createElement('img');
+            img.src = avatar;
+            img.alt = 'Seen';
+            img.className = 'read-avatar';
+            st.appendChild(img);
+        } else {
+            st.textContent = 'Đã xem';
+        }
+        last.appendChild(st);
     }
 
     function renderMessages(messages = []) {
@@ -274,12 +340,31 @@ export function initMessages({ socket } = {}) {
             return;
         }
         messages.forEach(msg => {
-            appendMessage({ message: msg.content, from: msg.from, isSelf: !!msg.isSelf, createdAt: msg.createdAt, chat: { id: (window.VAChat.currentChat && window.VAChat.currentChat.id) || '' } });
+            appendMessage({
+                message: msg.content,
+                from: msg.from,
+                isSelf: !!msg.isSelf,
+                createdAt: msg.createdAt,
+                _id: msg._id,
+                readBy: msg.readBy || [],
+                chat: { id: (window.VAChat.currentChat && window.VAChat.currentChat.id) || '', type: (window.VAChat.currentChat && window.VAChat.currentChat.type) || 'friend' }
+            });
         });
         chatBox.scrollTop = chatBox.scrollHeight;
         window.VAChat.lastMessages = (messages || []).map(m => ({ content: m.content, isSelf: !!m.isSelf, from: m.from != null ? String(m.from) : null, createdAt: m.createdAt || null })).slice(-200);
         if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type && window.VAChat.currentChat.id) {
             updateStreakBadge(window.VAChat.currentChat.type, window.VAChat.currentChat.id, window.VAChat.lastMessages);
+        }
+
+        // update read/sent status for friend chat
+        const cur = window.VAChat && window.VAChat.currentChat;
+        if (cur && cur.type === 'friend') {
+            const lastSelf = (messages || []).filter(m => m.isSelf).slice(-1)[0];
+            if (lastSelf) {
+                const readBy = (lastSelf.readBy || []).map(String);
+                if (readBy.includes(String(cur.id))) updateSelfMessageStatusRead(cur.id);
+                else updateSelfMessageStatusSent();
+            }
         }
     }
 
@@ -328,6 +413,15 @@ export function initMessages({ socket } = {}) {
             window.VAChat = window.VAChat || {};
             window.VAChat.lastMessages = data.messages || [];
             updateStreakBadge(chatType, chatId, window.VAChat.lastMessages || []);
+
+            if (chatType === 'friend' && Array.isArray(data.messages)) {
+                const myId = String(window.userId || '');
+                const unreadIds = data.messages
+                    .filter(m => !m.isSelf && (!m.readBy || !m.readBy.map(String).includes(myId)))
+                    .map(m => m._id)
+                    .filter(Boolean);
+                emitFriendMarkRead(chatId, unreadIds);
+            }
             if (data.messages && data.messages.length > 0) {
                 // optional: scroll to bottom
             }
@@ -471,6 +565,14 @@ export function initMessages({ socket } = {}) {
             if (input) input.focus();
             window.VAChat.showDeleteFor('group', chatId);
             setInputVisible(true);
+        });
+    }
+
+    // Friend read receipt
+    if (socket && socket.on) {
+        socket.on('friend-read-receipt', (payload) => {
+            if (!payload || !payload.chatId) return;
+            updateSelfMessageStatusRead(payload.chatId);
         });
     }
 

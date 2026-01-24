@@ -1465,6 +1465,28 @@ body {
     transform: translateY(0);
 }
 
+.message-status {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: #cbd5f5;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.message.self .message-status {
+    justify-content: flex-end;
+    color: #dbeafe;
+}
+
+.message-status .read-avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #3b82f6;
+}
+
 .date-separator {
     align-self: center;
     font-size: 0.85rem;
