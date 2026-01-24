@@ -26,6 +26,52 @@ export function initMessages({ socket } = {}) {
         try { localStorage.setItem(key, JSON.stringify(Array.from(set))); } catch (e) { }
     }
 
+    function getChatItem(chatType, chatId) {
+        if (!chatType || !chatId) return null;
+        if (chatType === 'friend') return document.querySelector(`.chat-item.friend-profile[data-id="${String(chatId)}"]`);
+        if (chatType === 'group') return document.querySelector(`.chat-item[data-type="group"][data-id="${String(chatId)}"]`);
+        return null;
+    }
+
+    function toDayNumber(d) {
+        const dt = (d instanceof Date) ? d : new Date(d);
+        if (Number.isNaN(dt.getTime())) return null;
+        return Math.floor(new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime() / 86400000);
+    }
+
+    function calculateStreak(messages = []) {
+        const dayNums = Array.from(new Set(
+            (messages || [])
+                .map(m => toDayNumber(m.createdAt || m.createdAtAt || m.time || m.timestamp || m.date))
+                .filter(v => v != null)
+        )).sort((a, b) => b - a);
+        if (!dayNums.length) return 0;
+        let streak = 1;
+        for (let i = 1; i < dayNums.length; i += 1) {
+            if (dayNums[i - 1] - dayNums[i] === 1) streak += 1;
+            else break;
+        }
+        return streak;
+    }
+
+    function updateStreakBadge(chatType, chatId, messages) {
+        const item = getChatItem(chatType, chatId);
+        if (!item) return;
+        const streak = calculateStreak(messages);
+        let badge = item.querySelector('.streak-badge');
+        if (streak >= 2) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'streak-badge';
+                item.appendChild(badge);
+            }
+            badge.textContent = `🔥${streak}`;
+            badge.title = `Streak ${streak} ngày`;
+        } else if (badge) {
+            badge.remove();
+        }
+    }
+
     function getFriendInfo(friendId) {
         const friendItem = document.querySelector(`.chat-item.friend-profile[data-id="${friendId}"]`);
         if (!friendItem) return {};
@@ -166,6 +212,10 @@ export function initMessages({ socket } = {}) {
             createdAt: payload.createdAt || new Date()
         });
         if (window.VAChat.lastMessages.length > 200) window.VAChat.lastMessages = window.VAChat.lastMessages.slice(-200);
+
+        if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type && window.VAChat.currentChat.id) {
+            updateStreakBadge(window.VAChat.currentChat.type, window.VAChat.currentChat.id, window.VAChat.lastMessages);
+        }
     }
 
     function renderMessages(messages = []) {
@@ -183,6 +233,9 @@ export function initMessages({ socket } = {}) {
         });
         chatBox.scrollTop = chatBox.scrollHeight;
         window.VAChat.lastMessages = (messages || []).map(m => ({ content: m.content, isSelf: !!m.isSelf, from: m.from != null ? String(m.from) : null, createdAt: m.createdAt || null })).slice(-200);
+        if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type && window.VAChat.currentChat.id) {
+            updateStreakBadge(window.VAChat.currentChat.type, window.VAChat.currentChat.id, window.VAChat.lastMessages);
+        }
     }
 
     function setSendEnabled(enabled) {
@@ -228,6 +281,7 @@ export function initMessages({ socket } = {}) {
             renderMessages(data.messages || []);
             window.VAChat = window.VAChat || {};
             window.VAChat.lastMessages = data.messages || [];
+            updateStreakBadge(chatType, chatId, window.VAChat.lastMessages || []);
             if (data.messages && data.messages.length > 0) {
                 // optional: scroll to bottom
             }
