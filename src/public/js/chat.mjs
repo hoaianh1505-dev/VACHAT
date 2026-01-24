@@ -39,6 +39,23 @@ export function initMessages({ socket } = {}) {
         return Math.floor(new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime() / 86400000);
     }
 
+    function formatDateLabel(dayNum) {
+        const today = toDayNumber(new Date());
+        const yesterday = today - 1;
+        if (dayNum === today) return 'Hôm nay';
+        if (dayNum === yesterday) return 'Hôm qua';
+        const d = new Date(dayNum * 86400000);
+        return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function formatTimeLabel(d) {
+        const dt = (d instanceof Date) ? d : new Date(d);
+        if (Number.isNaN(dt.getTime())) return '';
+        const time = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const date = dt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        return `${time} • ${date}`;
+    }
+
     function calculateStreak(messages = []) {
         const dayNums = Array.from(new Set(
             (messages || [])
@@ -46,6 +63,8 @@ export function initMessages({ socket } = {}) {
                 .filter(v => v != null)
         )).sort((a, b) => b - a);
         if (!dayNums.length) return 0;
+        const today = toDayNumber(new Date());
+        if (dayNums[0] !== today) return 0;
         let streak = 1;
         for (let i = 1; i < dayNums.length; i += 1) {
             if (dayNums[i - 1] - dayNums[i] === 1) streak += 1;
@@ -70,6 +89,10 @@ export function initMessages({ socket } = {}) {
         } else if (badge) {
             badge.remove();
         }
+    }
+
+    function clearAllStreakBadges() {
+        document.querySelectorAll('.streak-badge').forEach(b => b.remove());
     }
 
     function getFriendInfo(friendId) {
@@ -157,6 +180,7 @@ export function initMessages({ socket } = {}) {
             const chatBox = document.getElementById('chat-box'); if (chatBox) chatBox.innerHTML = '<div class="system-message">Chọn bạn bè để bắt đầu nhắn tin.</div>';
             const dd = getDeleteBtn(); if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             setInputVisible(false);
+            clearAllStreakBadges();
         });
     }
 
@@ -181,13 +205,29 @@ export function initMessages({ socket } = {}) {
         return false;
     }
 
+    let lastRenderedDay = null;
+
+    function ensureDateSeparator(dateValue) {
+        const dayNum = toDayNumber(dateValue);
+        if (dayNum == null) return;
+        if (lastRenderedDay === dayNum) return;
+        lastRenderedDay = dayNum;
+        const sep = document.createElement('div');
+        sep.className = 'date-separator';
+        sep.textContent = formatDateLabel(dayNum);
+        chatBox.appendChild(sep);
+    }
+
     function appendMessage(data) {
         if (!chatBox) return;
         const payload = Object.assign({}, data);
         if (isDuplicate(payload)) return;
+        const ts = payload.createdAt || new Date();
+        ensureDateSeparator(ts);
         const div = document.createElement('div');
         div.className = 'message' + (payload.isSelf ? ' self' : '');
         const text = payload.message || payload.content || '';
+        const timeLabel = formatTimeLabel(ts);
         if (!payload.isSelf) {
             const { avatar, username } = getFriendInfo(payload.from);
             div.innerHTML = `
@@ -195,12 +235,16 @@ export function initMessages({ socket } = {}) {
                     <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
                     <div>
                         <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${escapeHtml(username || '')}</div>
-                        <div>${escapeHtml(String(text || ''))}</div>
+                        <div class="message-text">${escapeHtml(String(text || ''))}</div>
                     </div>
                 </div>`;
         } else {
-            div.textContent = String(text || '');
+            div.innerHTML = `<span class="message-text">${escapeHtml(String(text || ''))}</span>`;
         }
+        const timeEl = document.createElement('span');
+        timeEl.className = 'message-time';
+        timeEl.textContent = timeLabel;
+        div.appendChild(timeEl);
         chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -221,6 +265,7 @@ export function initMessages({ socket } = {}) {
     function renderMessages(messages = []) {
         if (!chatBox) return;
         chatBox.innerHTML = '';
+        lastRenderedDay = null;
         if (!messages.length) {
             const div = document.createElement('div');
             div.className = 'system-message';
@@ -270,6 +315,7 @@ export function initMessages({ socket } = {}) {
             if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             return;
         }
+        clearAllStreakBadges();
         setInputVisible(chatType === 'friend' || chatType === 'group');
         setSendEnabled(false);
         showLoading();
@@ -341,6 +387,7 @@ export function initMessages({ socket } = {}) {
     if (!savedChat) {
         setPrivateActive(true);
         setInputVisible(false);
+        clearAllStreakBadges();
     }
 
     window.VAChat = window.VAChat || {};

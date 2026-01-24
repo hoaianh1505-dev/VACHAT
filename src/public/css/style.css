@@ -584,11 +584,12 @@ a {
     font-size: 1.08rem;
     font-weight: 500;
     align-self: flex-start;
-    margin-bottom: 0;
+    margin-bottom: 6px;
     box-shadow: 0 2px 12px rgba(79, 140, 255, 0.10);
     word-break: break-word;
     transition: background 0.2s;
     animation: fadeInMsg 0.3s;
+    position: relative;
 }
 
 .message.self {
@@ -1439,4 +1440,38 @@ body {
     right: 4px;
     bottom: 4px;
     margin-left: 0;
+}
+
+.message-time {
+    position: absolute;
+    bottom: -18px;
+    left: 12px;
+    font-size: 0.78rem;
+    color: #9ca3af;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.message.self .message-time {
+    left: auto;
+    right: 12px;
+}
+
+.message:hover .message-time {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.date-separator {
+    align-self: center;
+    font-size: 0.85rem;
+    color: #9ca3af;
+    background: #23232a;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin: 6px 0 10px 0;
+    box-shadow: inset 0 0 0 1px #2f3542;
 }
