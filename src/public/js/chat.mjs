@@ -342,6 +342,7 @@ export function initMessages({ socket } = {}) {
             const dd = getDeleteBtn(); if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             setInputVisible(false);
             setPresenceBarVisible(false);
+            setGroupSpacerVisible(false);
             showFriendSidebar();
         });
     }
@@ -660,11 +661,17 @@ export function initMessages({ socket } = {}) {
     const presenceName = document.getElementById('chat-presence-name');
     const presenceStatus = document.getElementById('chat-presence-status');
     const presenceDot = document.getElementById('chat-presence-dot');
+    const groupSpacer = document.getElementById('chat-group-spacer');
     const presenceMap = new Map();
 
     function setPresenceBarVisible(visible) {
         if (!presenceBar) return;
         presenceBar.style.display = visible ? 'flex' : 'none';
+    }
+
+    function setGroupSpacerVisible(visible) {
+        if (!groupSpacer) return;
+        groupSpacer.style.display = visible ? 'block' : 'none';
     }
 
     function formatLastActive(ts) {
@@ -702,6 +709,7 @@ export function initMessages({ socket } = {}) {
             setPresenceBarVisible(false);
             return;
         }
+        setGroupSpacerVisible(false);
         const item = friendsList ? friendsList.querySelector(`.chat-item.friend-profile[data-id="${String(friendId)}"]`) : null;
         const name = item && item.querySelector('.friend-username') ? item.querySelector('.friend-username').textContent : 'Bạn bè';
         const state = presenceMap.get(String(friendId)) || { online: false, lastActive: null };
@@ -832,6 +840,7 @@ export function initMessages({ socket } = {}) {
             if (window.VAChat.pendingMessages) delete window.VAChat.pendingMessages[chatId];
             window.VAChat.showDeleteFor('friend', chatId);
             updatePresenceBar(chatId);
+            setGroupSpacerVisible(false);
         });
     }
 
@@ -976,6 +985,7 @@ export function initMessages({ socket } = {}) {
             window.VAChat.showDeleteFor('group', chatId);
             setInputVisible(true);
             setPresenceBarVisible(false);
+            setGroupSpacerVisible(true);
             showGroupSidebar();
             loadGroupMembers(chatId);
         });
