@@ -972,6 +972,11 @@ export function initMessages({ socket } = {}) {
         return Array.from(friendsList.querySelectorAll('.chat-item.friend-profile')).map(i => String(i.dataset.id || '')).filter(Boolean);
     }
 
+    function isFriendId(id) {
+        if (!friendsList || !id) return false;
+        return !!friendsList.querySelector(`.chat-item.friend-profile[data-id="${String(id)}"]`);
+    }
+
     function showFriendSidebar() {
         if (searchBox) searchBox.style.display = 'flex';
         if (friendListWrap) friendListWrap.style.display = 'block';
@@ -993,6 +998,8 @@ export function initMessages({ socket } = {}) {
             const initials = name.trim().slice(0, 2).toUpperCase() || 'US';
             const li = document.createElement('li');
             li.className = 'group-member-item';
+            if (m && m._id) li.dataset.id = String(m._id);
+            if (m && m._id && window.userId && String(m._id) === String(window.userId)) li.dataset.isSelf = '1';
             li.innerHTML = `${avatar ? `<img src="${avatar}" class="avatar" style="width:28px;height:28px;">` : `<div class="avatar avatar-text" style="width:28px;height:28px;">${escapeHtml(initials)}</div>`}
                 <span class="group-member-name">${escapeHtml(name)}</span>`;
             groupMembersList.appendChild(li);
@@ -1484,6 +1491,12 @@ export function initMessages({ socket } = {}) {
     const groupMenuAdd = groupMenu ? groupMenu.querySelector('[data-action="add-member"]') : null;
     const groupMenuLeave = groupMenu ? groupMenu.querySelector('[data-action="leave-group"]') : null;
 
+    const groupMemberMenu = document.getElementById('group-member-context-menu');
+    const groupMemberMenuAdd = groupMemberMenu ? groupMemberMenu.querySelector('[data-action="add-friend"]') : null;
+    const groupMemberMenuRemove = groupMemberMenu ? groupMemberMenu.querySelector('[data-action="remove-friend"]') : null;
+    const groupMemberMenuLeave = groupMemberMenu ? groupMemberMenu.querySelector('[data-action="leave-group"]') : null;
+    const groupMemberMenuDivider = groupMemberMenu ? groupMemberMenu.querySelector('.context-menu-divider') : null;
+
     function hideGroupMenu() {
         if (!groupMenu) return;
         groupMenu.style.display = 'none';
@@ -1512,6 +1525,77 @@ export function initMessages({ socket } = {}) {
         });
     }
 
+    function hideGroupMemberMenu() {
+        if (!groupMemberMenu) return;
+        groupMemberMenu.style.display = 'none';
+        groupMemberMenu.dataset.memberId = '';
+        groupMemberMenu.dataset.groupId = '';
+    }
+
+    function openGroupMemberMenu(item, x, y) {
+        if (!groupMemberMenu || !item) return;
+        const memberId = String(item.dataset.id || '');
+        const isSelf = memberId && window.userId && String(memberId) === String(window.userId);
+        const isFriend = memberId ? isFriendId(memberId) : false;
+        const curGroup = window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type === 'group' ? String(window.VAChat.currentChat.id || '') : '';
+        groupMemberMenu.dataset.memberId = memberId;
+        groupMemberMenu.dataset.groupId = curGroup;
+        if (groupMemberMenuAdd) groupMemberMenuAdd.style.display = (!isSelf && !isFriend) ? 'block' : 'none';
+        if (groupMemberMenuRemove) groupMemberMenuRemove.style.display = (!isSelf && isFriend) ? 'block' : 'none';
+        if (groupMemberMenuLeave) groupMemberMenuLeave.style.display = isSelf ? 'block' : 'none';
+        if (groupMemberMenuDivider) groupMemberMenuDivider.style.display = 'none';
+
+        groupMemberMenu.style.display = 'block';
+        groupMemberMenu.style.left = '0px';
+        groupMemberMenu.style.top = '0px';
+        requestAnimationFrame(() => {
+            const rect = groupMemberMenu.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width - 8;
+            const maxY = window.innerHeight - rect.height - 8;
+            groupMemberMenu.style.left = `${Math.max(8, Math.min(x, maxX))}px`;
+            groupMemberMenu.style.top = `${Math.max(8, Math.min(y, maxY))}px`;
+        });
+    }
+
+    async function leaveGroupById(groupId) {
+        if (!groupId) return;
+        const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Rời nhóm sẽ không thể xem lại lịch sử. Bạn chắc chắn?') : confirm('Rời nhóm sẽ không thể xem lại lịch sử. Bạn chắc chắn?');
+        if (!ok) return;
+        try {
+            const userId = window.userId || (window.VAChat && window.VAChat.userId);
+            if (!userId) throw new Error('Missing userId');
+            const res = await fetch('/api/groups/remove-member', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ groupId, userId })
+            });
+            if (res.status === 401) return window.location.href = '/login';
+            const jr = await res.json();
+            if (jr && jr.success) {
+                const item = groupsList ? groupsList.querySelector(`.chat-item[data-type="group"][data-id="${groupId}"]`) : null;
+                if (item) item.remove();
+                pinnedSet.delete(groupId);
+                mutedSet.delete(groupId);
+                saveIdSet(GROUP_PINNED_KEY, pinnedSet);
+                saveIdSet(GROUP_MUTED_KEY, mutedSet);
+                if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type === 'group' && String(window.VAChat.currentChat.id) === String(groupId)) {
+                    window.VAChat.currentChat = null;
+                    persistCurrentChat();
+                    const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'flex';
+                    const chatBox = document.getElementById('chat-box'); if (chatBox) chatBox.innerHTML = '<div class="system-message">Bạn đã rời nhóm chat.</div>';
+                    const dd = getDeleteBtn(); if (dd) dd.style.display = 'none';
+                    showFriendSidebar();
+                }
+            } else {
+                if (window.UI && window.UI.alert) await window.UI.alert(jr && jr.error ? jr.error : 'Rời nhóm thất bại'); else alert(jr && jr.error ? jr.error : 'Rời nhóm thất bại');
+            }
+        } catch (err) {
+            console.error(err);
+            if (window.UI && window.UI.alert) await window.UI.alert('Lỗi rời nhóm'); else alert('Lỗi rời nhóm');
+        }
+    }
+
     document.addEventListener('contextmenu', (e) => {
         const item = e.target.closest('.chat-item[data-type="group"]');
         if (!item) return;
@@ -1519,9 +1603,19 @@ export function initMessages({ socket } = {}) {
         openGroupMenu(item, e.clientX, e.clientY);
     });
 
+    document.addEventListener('contextmenu', (e) => {
+        const memberItem = e.target.closest('.group-member-item');
+        if (!memberItem) return;
+        e.preventDefault();
+        openGroupMemberMenu(memberItem, e.clientX, e.clientY);
+    });
+
     document.addEventListener('click', (e) => {
         if (groupMenu && groupMenu.style.display === 'block') {
             if (!e.target.closest('#group-context-menu')) hideGroupMenu();
+        }
+        if (groupMemberMenu && groupMemberMenu.style.display === 'block') {
+            if (!e.target.closest('#group-member-context-menu')) hideGroupMemberMenu();
         }
     });
 
@@ -1569,41 +1663,78 @@ export function initMessages({ socket } = {}) {
             }
 
             if (action === 'leave-group') {
-                const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Rời nhóm sẽ không thể xem lại lịch sử. Bạn chắc chắn?') : confirm('Rời nhóm sẽ không thể xem lại lịch sử. Bạn chắc chắn?');
-                if (!ok) return;
+                await leaveGroupById(groupId);
+                hideGroupMenu();
+            }
+        });
+    }
+
+    if (groupMemberMenu) {
+        groupMemberMenu.addEventListener('click', async (e) => {
+            const action = e.target && e.target.dataset ? e.target.dataset.action : '';
+            if (!action) return;
+            const memberId = groupMemberMenu.dataset.memberId;
+            const groupId = groupMemberMenu.dataset.groupId;
+            if (!memberId && action !== 'leave-group') return;
+
+            if (action === 'add-friend') {
                 try {
-                    const userId = window.userId || (window.VAChat && window.VAChat.userId);
-                    if (!userId) throw new Error('Missing userId');
-                    const res = await fetch('/api/groups/remove-member', {
+                    const res = await fetch('/api/friends/add-friend', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
-                        body: JSON.stringify({ groupId, userId })
+                        body: JSON.stringify({ toId: memberId })
                     });
                     if (res.status === 401) return window.location.href = '/login';
                     const jr = await res.json();
                     if (jr && jr.success) {
-                        if (item) item.remove();
-                        pinnedSet.delete(groupId);
-                        mutedSet.delete(groupId);
-                        saveIdSet(GROUP_PINNED_KEY, pinnedSet);
-                        saveIdSet(GROUP_MUTED_KEY, mutedSet);
-                        if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type === 'group' && String(window.VAChat.currentChat.id) === String(groupId)) {
-                            window.VAChat.currentChat = null;
-                            persistCurrentChat();
-                            const placeholder = document.getElementById('chat-placeholder'); if (placeholder) placeholder.style.display = 'flex';
-                            const chatBox = document.getElementById('chat-box'); if (chatBox) chatBox.innerHTML = '<div class="system-message">Bạn đã rời nhóm chat.</div>';
-                            const dd = getDeleteBtn(); if (dd) dd.style.display = 'none';
-                        }
+                        if (window.UI && window.UI.alert) await window.UI.alert('Đã gửi lời mời kết bạn');
                     } else {
-                        if (window.UI && window.UI.alert) await window.UI.alert(jr && jr.error ? jr.error : 'Rời nhóm thất bại'); else alert(jr && jr.error ? jr.error : 'Rời nhóm thất bại');
+                        if (window.UI && window.UI.alert) await window.UI.alert(jr && jr.error ? jr.error : 'Kết bạn thất bại'); else alert(jr && jr.error ? jr.error : 'Kết bạn thất bại');
                     }
                 } catch (err) {
                     console.error(err);
-                    if (window.UI && window.UI.alert) await window.UI.alert('Lỗi rời nhóm'); else alert('Lỗi rời nhóm');
+                    if (window.UI && window.UI.alert) await window.UI.alert('Lỗi kết bạn'); else alert('Lỗi kết bạn');
                 } finally {
-                    hideGroupMenu();
+                    hideGroupMemberMenu();
                 }
+                return;
+            }
+
+            if (action === 'remove-friend') {
+                const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Bạn có chắc muốn hủy kết bạn?') : confirm('Bạn có chắc muốn hủy kết bạn?');
+                if (!ok) return;
+                try {
+                    const res = await fetch('/api/friends/remove', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ friendId: memberId })
+                    });
+                    if (res.status === 401) return window.location.href = '/login';
+                    const jr = await res.json();
+                    if (jr && jr.success) {
+                        const item = friendsList ? friendsList.querySelector(`.chat-item.friend-profile[data-id="${memberId}"]`) : null;
+                        if (item) item.remove();
+                        pinnedFriendSet.delete(memberId);
+                        mutedFriendSet.delete(memberId);
+                        saveIdSet(FRIEND_PINNED_KEY, pinnedFriendSet);
+                        saveIdSet(FRIEND_MUTED_KEY, mutedFriendSet);
+                    } else {
+                        if (window.UI && window.UI.alert) await window.UI.alert(jr && jr.error ? jr.error : 'Hủy kết bạn thất bại'); else alert(jr && jr.error ? jr.error : 'Hủy kết bạn thất bại');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    if (window.UI && window.UI.alert) await window.UI.alert('Lỗi hủy kết bạn'); else alert('Lỗi hủy kết bạn');
+                } finally {
+                    hideGroupMemberMenu();
+                }
+                return;
+            }
+
+            if (action === 'leave-group') {
+                await leaveGroupById(groupId);
+                hideGroupMemberMenu();
             }
         });
     }
