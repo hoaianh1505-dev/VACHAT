@@ -939,6 +939,12 @@ a {
     font-size: 1rem;
 }
 
+#chat-box.chat-drop-active {
+    outline: 2px dashed #4f8cff;
+    outline-offset: 4px;
+    background: rgba(79, 140, 255, 0.08);
+}
+
 .message {
     max-width: 65%;
     padding: 12px 22px;
@@ -2159,4 +2165,14 @@ body {
 
 .settings-dropdown .logout-form button:hover {
     background: #991b1b;
+}
+
+#attach-btn {
+    background: #4f8cff;
+}
+
+.message-media {
+    max-width: 260px;
+    border-radius: 12px;
+    margin-top: 6px;
 }

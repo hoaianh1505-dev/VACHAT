@@ -12,6 +12,8 @@ export function initMessages({ socket } = {}) {
     const emojiBtn = document.getElementById('emoji-btn');
     const emojiPicker = document.getElementById('emoji-picker');
     const createGroupBtn = document.getElementById('create-group-btn');
+    const attachBtn = document.getElementById('attach-btn');
+    const fileInput = document.getElementById('file-input');
 
     function getDeleteBtn() { return document.getElementById('delete-convo-btn'); }
     const EMOJIS = ['😀', '😂', '😍', '👍', '🎉', '🔥', '🙏', '😢', '😎', '🤔', '😅', '👏', '💯', '🎁', '🥳'];
@@ -182,6 +184,16 @@ export function initMessages({ socket } = {}) {
 
     function escapeHtml(str) {
         return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function parseMessageContent(content) {
+        if (typeof content === 'string' && content.startsWith('__file__:')) {
+            try {
+                const payload = JSON.parse(content.slice(9));
+                return payload && payload.url ? { type: 'file', file: payload } : { type: 'text', text: content };
+            } catch (e) { return { type: 'text', text: content }; }
+        }
+        return { type: 'text', text: content };
     }
 
     const notifBtn = document.getElementById('notif-btn');
@@ -585,6 +597,7 @@ export function initMessages({ socket } = {}) {
         if (payload.messageId || payload._id) div.dataset.messageId = String(payload.messageId || payload._id);
         const text = payload.message || payload.content || '';
         const timeLabel = formatTimeLabel(ts);
+        const parsed = parseMessageContent(text);
         if (!payload.isSelf) {
             const { avatar, username } = getFriendInfo(payload.from);
             const initials = (username || '').trim().slice(0, 2).toUpperCase() || '??';
@@ -594,11 +607,14 @@ export function initMessages({ socket } = {}) {
                         : `<div class="avatar avatar-text message-avatar">${escapeHtml(initials)}</div>`}
                     <div>
                         <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${escapeHtml(username || '')}</div>
-                        <div class="message-text">${escapeHtml(String(text || ''))}</div>
+                        <div class="message-text">${parsed.type === 'text' ? escapeHtml(String(text || '')) : ''}
+                            ${parsed.type === 'file' && parsed.file ? renderFileHtml(parsed.file) : ''}
+                        </div>
                     </div>
                 </div>`;
         } else {
-            div.innerHTML = `<span class="message-text">${escapeHtml(String(text || ''))}</span>`;
+            div.innerHTML = `<span class="message-text">${parsed.type === 'text' ? escapeHtml(String(text || '')) : ''}
+                ${parsed.type === 'file' && parsed.file ? renderFileHtml(parsed.file) : ''}</span>`;
         }
         const timeEl = document.createElement('span');
         timeEl.className = 'message-time';
@@ -1639,6 +1655,83 @@ export function initMessages({ socket } = {}) {
     });
 
     if (emojiBtn) emojiBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
+
+    function renderFileHtml(file) {
+        const url = file.url || '';
+        const mime = file.mime || '';
+        const name = file.name || 'Tệp đính kèm';
+        if (mime.startsWith('image/')) {
+            return `<img src="${url}" class="message-media" alt="${escapeHtml(name)}" />`;
+        }
+        if (mime.startsWith('video/')) {
+            return `<video class="message-media" src="${url}" controls></video>`;
+        }
+        return `<a href="${url}" target="_blank" rel="noopener">${escapeHtml(name)}</a>`;
+    }
+
+    async function uploadSelectedFile(file) {
+        if (!file) return;
+        if (!(file.type || '').startsWith('image/') && !(file.type || '').startsWith('video/')) return;
+        if (file.size > 5 * 1024 * 1024) {
+            if (UI && typeof UI.alert === 'function') await UI.alert('File lớn hơn 5mb');
+            else alert('File lớn hơn 5mb');
+            return;
+        }
+        const active = document.querySelector('.chat-item.active');
+        if (!active) return;
+        const chatId = active.dataset.id;
+        const chatType = active.dataset.type || (window.VAChat.currentChat && window.VAChat.currentChat.type) || 'friend';
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('chatType', chatType);
+        fd.append('chatId', chatId);
+        try {
+            const r = await fetch('/api/messages/upload', { method: 'POST', credentials: 'same-origin', body: fd });
+            const j = await r.json();
+            if (!j || !j.success) {
+                const msg = j && j.error ? j.error : 'Upload thất bại';
+                if (UI && typeof UI.alert === 'function') await UI.alert(msg); else alert(msg);
+            }
+        } catch (e) {
+            console.error(e);
+            if (UI && typeof UI.alert === 'function') await UI.alert('Upload thất bại'); else alert('Upload thất bại');
+        }
+    }
+
+    if (attachBtn && fileInput) {
+        attachBtn.addEventListener('click', async () => {
+            const active = document.querySelector('.chat-item.active');
+            if (!active) {
+                if (UI && typeof UI.alert === 'function') await UI.alert('Chọn bạn hoặc nhóm để gửi file');
+                else alert('Chọn bạn hoặc nhóm để gửi file');
+                return;
+            }
+            fileInput.click();
+        });
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+            await uploadSelectedFile(file);
+            fileInput.value = '';
+        });
+    }
+
+    if (chatBox) {
+        chatBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            chatBox.classList.add('chat-drop-active');
+        });
+        chatBox.addEventListener('dragleave', () => {
+            chatBox.classList.remove('chat-drop-active');
+        });
+        chatBox.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            chatBox.classList.remove('chat-drop-active');
+            const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (!file) return;
+            await uploadSelectedFile(file);
+        });
+    }
 
     return { loadMessages, appendMessage, renderMessages };
 }
