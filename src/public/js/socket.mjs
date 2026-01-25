@@ -1,20 +1,9 @@
 
 // Socket Initialization Module
-const backend = (typeof window !== 'undefined' && window.BACKEND_URL) ? window.BACKEND_URL.replace(/\/$/, '') : '';
 const initialUserId = (typeof window !== 'undefined' && window.userId) ? String(window.userId) : null;
 
 // Ensure io is available
-export const socket = (typeof io !== 'undefined') ? (backend
-    ? io(backend, {
-        withCredentials: true,
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        path: '/socket.io',
-        auth: { userId: initialUserId }
-    })
-    : io({ auth: { userId: initialUserId } })) : null;
+export const socket = (typeof io !== 'undefined') ? io({ auth: { userId: initialUserId } }) : null;
 
 if (!socket) console.error('Socket.IO client not found');
 
