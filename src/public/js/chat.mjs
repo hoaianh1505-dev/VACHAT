@@ -715,20 +715,16 @@ export function initMessages({ socket } = {}) {
             if (!text) return;
             if (sendBtn) sendBtn.disabled = true;
             try {
-                const resp = await fetch('/api/messages/send-message', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ chatType, chatId, message: text })
+                if (!socket || !socket.emit) throw new Error('Socket not ready');
+                socket.emit('message:send', { chatType, chatId, message: text }, async (ack) => {
+                    if (ack && ack.success) {
+                        input.value = '';
+                    } else {
+                        const errMsg = ack && ack.error ? ack.error : 'Không gửi được tin nhắn';
+                        if (UI && typeof UI.alert === 'function') await UI.alert(errMsg);
+                        else alert(errMsg);
+                    }
                 });
-                if (resp.status === 401) return window.location.href = '/login';
-                const result = await resp.json();
-                if (result && result.success) {
-                    input.value = '';
-                } else {
-                    if (UI && typeof UI.alert === 'function') await UI.alert(result && result.error ? result.error : 'Không gửi được tin nhắn');
-                    else alert(result && result.error ? result.error : 'Không gửi được tin nhắn');
-                }
             } catch (err) {
                 console.error('send error', err);
                 if (UI && typeof UI.alert === 'function') await UI.alert('Lỗi gửi tin nhắn');
