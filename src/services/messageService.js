@@ -195,3 +195,48 @@ exports.deleteConversation = async ({ userId, chatType, chatId, io } = {}) => {
         throw e;
     }
 };
+
+exports.deleteMessage = async ({ userId, messageId, io } = {}) => {
+    if (!userId || !messageId) throw new Error('Missing fields');
+    const msg = await Message.findById(messageId).lean();
+    if (!msg) {
+        const e = new Error('Message not found');
+        e.status = 404;
+        throw e;
+    }
+    if (String(msg.from) !== String(userId)) {
+        const e = new Error('Forbidden');
+        e.status = 403;
+        throw e;
+    }
+    const res = await Message.deleteOne({ _id: msg._id });
+
+    try {
+        const payload = { messageId: String(msg._id), chatType: msg.chatType, chatId: String(msg.chatId) };
+        if (io && typeof io.emitToUser === 'function') {
+            io.emitToUser(String(userId), 'message-deleted', payload);
+            if (msg.chatType === 'friend') {
+                const otherId = String(msg.to || msg.chatId);
+                io.emitToUser(otherId, 'message-deleted', payload);
+            }
+            if (msg.chatType === 'group' && typeof io.to === 'function') {
+                io.to(`group_${String(msg.chatId)}`).emit('message-deleted', payload);
+            }
+        } else if (io && io.userSocketMap) {
+            const sid = io.userSocketMap[String(userId)];
+            if (sid) io.to(sid).emit('message-deleted', payload);
+            if (msg.chatType === 'friend') {
+                const otherId = String(msg.to || msg.chatId);
+                const sidOther = io.userSocketMap[otherId];
+                if (sidOther) io.to(sidOther).emit('message-deleted', payload);
+            }
+            if (msg.chatType === 'group' && typeof io.to === 'function') {
+                io.to(`group_${String(msg.chatId)}`).emit('message-deleted', payload);
+            }
+        }
+    } catch (e) {
+        console.warn('emit message-deleted failed', e);
+    }
+
+    return { deletedCount: res.deletedCount || 0 };
+};

@@ -72,3 +72,15 @@ exports.deleteConversation = asyncHandler(async (req, res) => {
     const result = await messageService.deleteConversation({ userId: String(sessionUser._id), chatType, chatId, io });
     return response.ok(res, { success: true, deleted: result.deletedCount || 0 });
 });
+
+exports.deleteMessage = asyncHandler(async (req, res) => {
+    const sessionUser = req.session && req.session.user;
+    if (!sessionUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const { messageId } = req.body || {};
+    if (!messageId) return response.err(res, 'Missing messageId', 400);
+
+    const io = req.app.get('io');
+    const result = await messageService.deleteMessage({ userId: String(sessionUser._id), messageId, io });
+    return response.ok(res, { success: true, deleted: result.deletedCount || 0 });
+});

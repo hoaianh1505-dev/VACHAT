@@ -38,5 +38,6 @@ router.post('/upload', (req, res, next) => {
 }, messageController.uploadMessage);
 router.get('/', messageController.getMessages);
 router.post('/delete-conversation', messageController.deleteConversation);
+router.post('/delete-message', messageController.deleteMessage);
 
 module.exports = router;

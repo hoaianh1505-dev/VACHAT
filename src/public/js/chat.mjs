@@ -25,6 +25,7 @@ export function initMessages({ socket } = {}) {
     const NOTIF_STORE_KEY = 'vachat.notifications';
     const SETTINGS_KEY = 'vachat.settings';
     const PROFILE_KEY = 'vachat.profileOverride';
+    const HIDDEN_MSG_KEY = 'vachat.hiddenMessages';
 
     function loadIdSet(key) {
         try {
@@ -35,6 +36,13 @@ export function initMessages({ socket } = {}) {
     }
     function saveIdSet(key, set) {
         try { localStorage.setItem(key, JSON.stringify(Array.from(set))); } catch (e) { }
+    }
+
+    function loadHiddenMessages() {
+        return loadIdSet(HIDDEN_MSG_KEY);
+    }
+    function saveHiddenMessages(set) {
+        saveIdSet(HIDDEN_MSG_KEY, set);
     }
 
     function loadStreakMap() {
@@ -594,10 +602,16 @@ export function initMessages({ socket } = {}) {
         const payload = Object.assign({}, data);
         if (isDuplicate(payload)) return;
         const ts = payload.createdAt || new Date();
+        const msgId = payload.messageId || payload._id;
+        if (msgId) {
+            const hidden = loadHiddenMessages();
+            if (hidden.has(String(msgId))) return;
+        }
         ensureDateSeparator(ts);
         const div = document.createElement('div');
         div.className = 'message' + (payload.isSelf ? ' self' : '');
-        if (payload.messageId || payload._id) div.dataset.messageId = String(payload.messageId || payload._id);
+        if (msgId) div.dataset.messageId = String(msgId);
+        div.dataset.isSelf = payload.isSelf ? '1' : '0';
         const text = payload.message || payload.content || '';
         const timeLabel = formatTimeLabel(ts);
         const parsed = parseMessageContent(text);
@@ -1372,6 +1386,96 @@ export function initMessages({ socket } = {}) {
         if (socket.connected) syncPresence();
     }
 
+    // Message context menu (right click)
+    const messageMenu = document.getElementById('message-context-menu');
+    const messageMenuDeleteAll = messageMenu ? messageMenu.querySelector('[data-action="delete-all"]') : null;
+    const messageMenuDeleteMe = messageMenu ? messageMenu.querySelector('[data-action="delete-me"]') : null;
+
+    function hideMessageMenu() {
+        if (!messageMenu) return;
+        messageMenu.style.display = 'none';
+        messageMenu.dataset.messageId = '';
+        messageMenu.dataset.isSelf = '';
+    }
+
+    function openMessageMenu(msgEl, x, y) {
+        if (!messageMenu || !msgEl) return;
+        const msgId = msgEl.dataset.messageId || '';
+        const isSelf = msgEl.dataset.isSelf === '1';
+        messageMenu.dataset.messageId = msgId;
+        messageMenu.dataset.isSelf = isSelf ? '1' : '0';
+        if (messageMenuDeleteAll) messageMenuDeleteAll.style.display = isSelf ? 'block' : 'none';
+        messageMenu.style.display = 'block';
+        messageMenu.style.left = '0px';
+        messageMenu.style.top = '0px';
+        requestAnimationFrame(() => {
+            const rect = messageMenu.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width - 8;
+            const maxY = window.innerHeight - rect.height - 8;
+            messageMenu.style.left = `${Math.max(8, Math.min(x, maxX))}px`;
+            messageMenu.style.top = `${Math.max(8, Math.min(y, maxY))}px`;
+        });
+    }
+
+    document.addEventListener('contextmenu', (e) => {
+        const msgEl = e.target.closest('.message');
+        if (!msgEl || msgEl.classList.contains('system-message')) return;
+        e.preventDefault();
+        openMessageMenu(msgEl, e.clientX, e.clientY);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (messageMenu && messageMenu.style.display === 'block') {
+            if (!e.target.closest('#message-context-menu')) hideMessageMenu();
+        }
+    });
+
+    if (messageMenu) {
+        messageMenu.addEventListener('click', async (e) => {
+            const action = e.target && e.target.dataset ? e.target.dataset.action : '';
+            if (!action) return;
+            const messageId = messageMenu.dataset.messageId;
+            if (!messageId) return;
+
+            if (action === 'delete-me') {
+                const hidden = loadHiddenMessages();
+                hidden.add(String(messageId));
+                saveHiddenMessages(hidden);
+                const el = chatBox ? chatBox.querySelector(`.message[data-message-id="${messageId}"]`) : null;
+                if (el) el.remove();
+                hideMessageMenu();
+                return;
+            }
+
+            if (action === 'delete-all') {
+                const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Xóa tin nhắn cho mọi người?') : confirm('Xóa tin nhắn cho mọi người?');
+                if (!ok) return;
+                try {
+                    const r = await fetch('/api/messages/delete-message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ messageId })
+                    });
+                    if (r.status === 401) return window.location.href = '/login';
+                    const j = await r.json();
+                    if (j && j.success) {
+                        const el = chatBox ? chatBox.querySelector(`.message[data-message-id="${messageId}"]`) : null;
+                        if (el) el.remove();
+                    } else {
+                        if (UI && typeof UI.alert === 'function') await UI.alert(j && j.error ? j.error : 'Xóa thất bại'); else alert(j && j.error ? j.error : 'Xóa thất bại');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    if (UI && typeof UI.alert === 'function') await UI.alert('Lỗi xóa tin nhắn'); else alert('Lỗi xóa tin nhắn');
+                } finally {
+                    hideMessageMenu();
+                }
+                return;
+            }
+        });
+    }
+
     // Group context menu (right click)
     const groupMenu = document.getElementById('group-context-menu');
     const groupMenuMute = groupMenu ? groupMenu.querySelector('[data-action="toggle-mute"]') : null;
@@ -1601,6 +1705,14 @@ export function initMessages({ socket } = {}) {
                     const li = document.querySelector(`.chat-item[data-id="${data.chatId}"]`);
                     if (li) li.classList.remove('active');
                 }
+            } catch (e) { /* noop */ }
+        });
+
+        socket.on('message-deleted', (data) => {
+            try {
+                if (!data || !data.messageId) return;
+                const el = chatBox ? chatBox.querySelector(`.message[data-message-id="${data.messageId}"]`) : null;
+                if (el) el.remove();
             } catch (e) { /* noop */ }
         });
     }
