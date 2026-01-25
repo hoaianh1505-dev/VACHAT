@@ -187,6 +187,11 @@ export function initMessages({ socket } = {}) {
     const notifList = document.getElementById('notif-list');
     const notifEmpty = document.getElementById('notif-empty');
     const notifBadge = document.getElementById('notif-badge');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsDropdown = document.getElementById('settings-dropdown');
+    const userSettingsBtn = document.getElementById('user-settings-btn');
+    const userSettingsModal = document.getElementById('user-settings-modal');
+    const userSettingsClose = document.getElementById('user-settings-close');
 
     function loadNotifications() {
         try {
@@ -253,6 +258,39 @@ export function initMessages({ socket } = {}) {
         });
         document.addEventListener('click', () => {
             if (notifDropdown.style.display === 'block') notifDropdown.style.display = 'none';
+            if (settingsDropdown && settingsDropdown.style.display === 'block') settingsDropdown.style.display = 'none';
+        });
+    }
+    if (settingsBtn && settingsDropdown) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = settingsDropdown.style.display === 'block';
+            settingsDropdown.style.display = isOpen ? 'none' : 'block';
+            if (notifDropdown && notifDropdown.style.display === 'block') notifDropdown.style.display = 'none';
+        });
+    }
+    if (userSettingsBtn) {
+        userSettingsBtn.addEventListener('click', async () => {
+            if (settingsDropdown) settingsDropdown.style.display = 'none';
+            if (userSettingsModal) userSettingsModal.style.display = 'flex';
+        });
+    }
+    if (userSettingsClose && userSettingsModal) {
+        userSettingsClose.addEventListener('click', () => { userSettingsModal.style.display = 'none'; });
+    }
+    if (userSettingsModal) {
+        userSettingsModal.addEventListener('click', (e) => {
+            if (e.target === userSettingsModal) userSettingsModal.style.display = 'none';
+        });
+        userSettingsModal.querySelectorAll('.user-settings-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                userSettingsModal.querySelectorAll('.user-settings-tab').forEach(b => b.classList.remove('active'));
+                userSettingsModal.querySelectorAll('.user-settings-pane').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                const pane = userSettingsModal.querySelector(`.user-settings-pane[data-pane="${tab}"]`);
+                if (pane) pane.classList.add('active');
+            });
         });
     }
     if (notifList) {
@@ -1347,10 +1385,14 @@ export function initMessages({ socket } = {}) {
                     let badge = item.querySelector('.unread-badge');
                     if (!badge) {
                         badge = document.createElement('span');
-                        badge.className = 'friend-request-badge unread-badge';
-                        badge.style.position = 'absolute';
-                        badge.style.right = '12px';
-                        badge.style.top = '10px';
+                        if (chatType === 'group') {
+                            badge.className = 'unread-badge group-unread-badge';
+                        } else {
+                            badge.className = 'friend-request-badge unread-badge';
+                            badge.style.position = 'absolute';
+                            badge.style.right = '12px';
+                            badge.style.top = '10px';
+                        }
                         badge.textContent = '1';
                         item.appendChild(badge);
                     } else {

@@ -35,10 +35,13 @@
                     <div id="notif-list" class="notif-list"></div>
                     <div id="notif-empty" class="notif-empty">Không có thông báo</div>
                 </div>
-                <button class="icon-btn" title="Cài đặt">⚙️</button>
-                <form method="POST" action="/logout" class="logout-form" style="display:inline;">
-                    <button type="submit">Đăng xuất</button>
-                </form>
+                <button class="icon-btn" id="settings-btn" title="Cài đặt">⚙️</button>
+                <div id="settings-dropdown" class="settings-dropdown" style="display:none;">
+                    <button type="button" id="user-settings-btn" class="settings-item">Người dùng</button>
+                    <form method="POST" action="/logout" class="logout-form" style="display:block;">
+                        <button type="submit">Đăng xuất</button>
+                    </form>
+                </div>
             </div>
         </header>
 
@@ -183,6 +186,32 @@
         <div class="context-menu-divider"></div>
         <button type="button" class="context-menu-item" data-action="delete-convo">Xóa cuộc trò chuyện</button>
         <button type="button" class="context-menu-item danger" data-action="remove-friend">Xóa bạn bè</button>
+    </div>
+
+    <!-- user settings modal -->
+    <div id="user-settings-modal" class="user-settings-modal" style="display:none;">
+        <div class="user-settings-card">
+            <div class="user-settings-sidebar">
+                <button type="button" class="user-settings-tab active" data-tab="profile">Profile</button>
+                <button type="button" class="user-settings-tab" data-tab="notifications">Thông báo</button>
+                <button type="button" class="user-settings-tab" data-tab="app">App setting</button>
+            </div>
+            <div class="user-settings-content">
+                <div class="user-settings-pane active" data-pane="profile">
+                    <h3>Profile</h3>
+                    <p>Thông tin người dùng sẽ hiển thị ở đây.</p>
+                </div>
+                <div class="user-settings-pane" data-pane="notifications">
+                    <h3>Thông báo</h3>
+                    <p>Cài đặt thông báo sẽ hiển thị ở đây.</p>
+                </div>
+                <div class="user-settings-pane" data-pane="app">
+                    <h3>App setting</h3>
+                    <p>Cài đặt ứng dụng sẽ hiển thị ở đây.</p>
+                </div>
+            </div>
+            <button type="button" id="user-settings-close" class="user-settings-close">✕</button>
+        </div>
     </div>
 
     <!-- socket + ui modal lib -->
