@@ -6,15 +6,17 @@ module.exports = (io, socket) => {
     // client may emit 'register-user' to associate socket with userId
     const User = require('../models/User');
 
-    async function announceToFriends(userId, event) {
+    async function announceToFriends(userId, event, payload) {
         try {
             const u = await User.findById(userId).select('friends').lean();
             if (!u || !Array.isArray(u.friends)) return;
             for (const f of u.friends) {
-                if (typeof io.emitToUser === 'function') io.emitToUser(String(f), event, { userId: String(userId) });
+                const data = payload ? { ...payload } : { userId: String(userId) };
+                if (!data.userId) data.userId = String(userId);
+                if (typeof io.emitToUser === 'function') io.emitToUser(String(f), event, data);
                 else if (io.userSocketMap && io.userSocketMap[String(f)]) {
                     const sid = io.userSocketMap[String(f)];
-                    try { io.to(sid).emit(event, { userId: String(userId) }); } catch (e) { /* noop */ }
+                    try { io.to(sid).emit(event, data); } catch (e) { /* noop */ }
                 }
             }
         } catch (e) { /* noop */ }
@@ -57,7 +59,23 @@ module.exports = (io, socket) => {
             // ack registration
             try { socket.emit('registered', { userId: socket.userId }); } catch (e) { /* noop */ }
             // announce online to friends (best-effort)
-            await announceToFriends(socket.userId, 'friend-online');
+            await announceToFriends(socket.userId, 'friend-online', { userId: socket.userId });
+        } catch (e) { /* noop */ }
+    });
+
+    socket.on('presence:sync', async (friendIds) => {
+        try {
+            if (!Array.isArray(friendIds)) return;
+            const ids = friendIds.map(String).filter(Boolean);
+            if (!ids.length) return;
+            const users = await User.find({ _id: { $in: ids } }).select('_id lastActive').lean();
+            const map = new Map((users || []).map(u => [String(u._id), u.lastActive || null]));
+            const states = ids.map(id => ({
+                userId: String(id),
+                online: !!(io.userSocketMap && io.userSocketMap[String(id)]),
+                lastActive: map.get(String(id)) || null
+            }));
+            try { socket.emit('presence:state', states); } catch (e) { /* noop */ }
         } catch (e) { /* noop */ }
     });
 
@@ -67,7 +85,11 @@ module.exports = (io, socket) => {
             removeSocketId(socket.id);
             // if no remaining sockets for this user, announce offline
             const remaining = io.userSocketMap && io.userSocketMap[String(uid)];
-            if (!remaining && uid) await announceToFriends(uid, 'friend-offline');
+            if (!remaining && uid) {
+                let lastActive = new Date();
+                try { await User.findByIdAndUpdate(uid, { lastActive }, { new: false }); } catch (e) { /* noop */ }
+                await announceToFriends(uid, 'friend-offline', { userId: String(uid), lastActive });
+            }
         } catch (e) { /* noop */ }
     });
 };

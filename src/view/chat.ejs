@@ -78,6 +78,7 @@
                                                 <%= (friend.username||'').substring(0,2).toUpperCase() %>
                                             </div>
                                             <% } %>
+                                    <span class="friend-presence-dot" aria-hidden="true"></span>
                                 </span>
                                 <span class="friend-username">
                                     <%= friend.username %>
@@ -90,6 +91,15 @@
             </aside>
 
             <main class="chat-main">
+                <div id="chat-presence-bar" class="chat-presence-bar" style="display:none;">
+                    <div class="chat-presence-left">
+                        <span id="chat-presence-name" class="chat-presence-name"></span>
+                    </div>
+                    <div class="chat-presence-right">
+                        <span id="chat-presence-dot" class="chat-presence-dot" aria-hidden="true"></span>
+                        <span id="chat-presence-status" class="chat-presence-status"></span>
+                    </div>
+                </div>
                 <div id="chat-box" style="position:relative;">
                     <div id="chat-placeholder" class="chat-placeholder">
                         <span>Chọn một cuộc trò chuyện để bắt đầu nhắn tin</span>

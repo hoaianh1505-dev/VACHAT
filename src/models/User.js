@@ -5,6 +5,7 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true },
     avatar: { type: String, default: '/public/avatar.png' }, // link ảnh đại diện
     friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group' }]
+    groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group' }],
+    lastActive: { type: Date, default: null }
 });
 module.exports = mongoose.model('User', UserSchema);

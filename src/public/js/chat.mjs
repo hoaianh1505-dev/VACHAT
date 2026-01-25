@@ -249,6 +249,7 @@ export function initMessages({ socket } = {}) {
             const chatBox = document.getElementById('chat-box'); if (chatBox) chatBox.innerHTML = '<div class="system-message">Chọn bạn bè để bắt đầu nhắn tin.</div>';
             const dd = getDeleteBtn(); if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             setInputVisible(false);
+            setPresenceBarVisible(false);
         });
     }
 
@@ -556,6 +557,87 @@ export function initMessages({ socket } = {}) {
     const friendsList = document.getElementById('friends');
     const pinnedFriendSet = loadIdSet(FRIEND_PINNED_KEY);
     const mutedFriendSet = loadIdSet(FRIEND_MUTED_KEY);
+    const presenceBar = document.getElementById('chat-presence-bar');
+    const presenceName = document.getElementById('chat-presence-name');
+    const presenceStatus = document.getElementById('chat-presence-status');
+    const presenceDot = document.getElementById('chat-presence-dot');
+    const presenceMap = new Map();
+
+    function setPresenceBarVisible(visible) {
+        if (!presenceBar) return;
+        presenceBar.style.display = visible ? 'flex' : 'none';
+    }
+
+    function formatLastActive(ts) {
+        if (!ts) return 'Không hoạt động gần đây';
+        const time = new Date(ts);
+        const diffMs = Date.now() - time.getTime();
+        if (Number.isNaN(diffMs)) return 'Không hoạt động gần đây';
+        const min = Math.floor(diffMs / 60000);
+        const hour = Math.floor(diffMs / 3600000);
+        const day = Math.floor(diffMs / 86400000);
+        if (min < 1) return 'Vừa hoạt động';
+        if (min < 60) return `Hoạt động ${min} phút trước`;
+        if (hour < 24) return `Hoạt động ${hour} giờ trước`;
+        if (day < 7) return `Hoạt động ${day} ngày trước`;
+        return `Hoạt động ${time.toLocaleDateString('vi-VN')}`;
+    }
+
+    function updateFriendPresenceUI(friendId) {
+        if (!friendId) return;
+        const item = friendsList ? friendsList.querySelector(`.chat-item.friend-profile[data-id="${String(friendId)}"]`) : null;
+        if (!item) return;
+        const state = presenceMap.get(String(friendId)) || { online: false, lastActive: null };
+        item.classList.toggle('online', !!state.online);
+        item.classList.toggle('offline', !state.online);
+        const dot = item.querySelector('.friend-presence-dot');
+        if (dot) {
+            dot.classList.toggle('online', !!state.online);
+            dot.classList.toggle('offline', !state.online);
+        }
+    }
+
+    function updatePresenceBar(friendId) {
+        if (!presenceBar) return;
+        if (!friendId) {
+            setPresenceBarVisible(false);
+            return;
+        }
+        const item = friendsList ? friendsList.querySelector(`.chat-item.friend-profile[data-id="${String(friendId)}"]`) : null;
+        const name = item && item.querySelector('.friend-username') ? item.querySelector('.friend-username').textContent : 'Bạn bè';
+        const state = presenceMap.get(String(friendId)) || { online: false, lastActive: null };
+        if (presenceName) presenceName.textContent = name;
+        if (presenceStatus) presenceStatus.textContent = state.online ? 'Đang hoạt động' : formatLastActive(state.lastActive);
+        if (presenceDot) {
+            presenceDot.classList.toggle('online', !!state.online);
+            presenceDot.classList.toggle('offline', !state.online);
+        }
+        setPresenceBarVisible(true);
+    }
+
+    function setFriendPresence(friendId, online, lastActive) {
+        if (!friendId) return;
+        presenceMap.set(String(friendId), { online: !!online, lastActive: lastActive || null });
+        updateFriendPresenceUI(friendId);
+        if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type === 'friend' && String(window.VAChat.currentChat.id) === String(friendId)) {
+            updatePresenceBar(friendId);
+        }
+    }
+
+    function initPresenceDefaults() {
+        if (!friendsList) return;
+        Array.from(friendsList.querySelectorAll('.chat-item.friend-profile')).forEach(item => {
+            const id = String(item.dataset.id || '');
+            if (!id) return;
+            if (!presenceMap.has(id)) presenceMap.set(id, { online: false, lastActive: null });
+            updateFriendPresenceUI(id);
+        });
+    }
+
+    function getFriendIds() {
+        if (!friendsList) return [];
+        return Array.from(friendsList.querySelectorAll('.chat-item.friend-profile')).map(i => String(i.dataset.id || '')).filter(Boolean);
+    }
 
     function applyFriendState(item) {
         if (!item) return;
@@ -589,6 +671,7 @@ export function initMessages({ socket } = {}) {
         [...pinnedItems, ...others].forEach(el => friendsList.appendChild(el));
     }
     if (friendsList) {
+        initPresenceDefaults();
         Array.from(friendsList.querySelectorAll('.chat-item.friend-profile')).forEach(applyFriendState);
         sortFriends();
         friendsList.addEventListener('click', async (e) => {
@@ -606,7 +689,12 @@ export function initMessages({ socket } = {}) {
             const badge = item.querySelector('.unread-badge'); if (badge) badge.style.display = 'none';
             if (window.VAChat.pendingMessages) delete window.VAChat.pendingMessages[chatId];
             window.VAChat.showDeleteFor('friend', chatId);
+            updatePresenceBar(chatId);
         });
+    }
+
+    if (savedChat && savedChat.type === 'friend' && savedChat.id) {
+        updatePresenceBar(savedChat.id);
     }
 
     const groupsList = document.getElementById('groups');
@@ -683,6 +771,7 @@ export function initMessages({ socket } = {}) {
             if (input) input.focus();
             window.VAChat.showDeleteFor('group', chatId);
             setInputVisible(true);
+            setPresenceBarVisible(false);
         });
     }
 
@@ -834,6 +923,25 @@ export function initMessages({ socket } = {}) {
             if (!payload || !payload.chatId) return;
             updateSelfMessageStatusRead(payload.chatId);
         });
+        socket.on('friend-online', (payload) => {
+            if (!payload || !payload.userId) return;
+            setFriendPresence(payload.userId, true, payload.lastActive || null);
+        });
+        socket.on('friend-offline', (payload) => {
+            if (!payload || !payload.userId) return;
+            setFriendPresence(payload.userId, false, payload.lastActive || null);
+        });
+        socket.on('presence:state', (list) => {
+            if (!Array.isArray(list)) return;
+            list.forEach(s => setFriendPresence(s.userId, !!s.online, s.lastActive || null));
+        });
+        const syncPresence = () => {
+            const ids = getFriendIds();
+            if (ids.length && socket && socket.emit) socket.emit('presence:sync', ids);
+        };
+        socket.on('connect', syncPresence);
+        socket.on('registered', syncPresence);
+        if (socket.connected) syncPresence();
     }
 
     // Group context menu (right click)
