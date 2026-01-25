@@ -1,4 +1,4 @@
-import { socket, registerUser } from './socket.mjs';
+import { socket } from './socket.mjs';
 import { initMessages } from './chat.mjs';
 import { initFriends } from './friends.mjs';
 
@@ -8,5 +8,5 @@ initFriends({ socket });
 
 // Expose socket for debugging
 if (typeof window !== 'undefined') {
-    window.socketClient = { socket, register: registerUser };
+    window.socketClient = { socket };
 }

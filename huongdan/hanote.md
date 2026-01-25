@@ -57,3 +57,7 @@ Trình duyệt người dùng (Client)
 Máy chủ Node.js (Server)
 Máy chủ MongoDB (Database)
 Chúng "nói chuyện" với nhau liên tục thông qua hạ tầng mạng TCP/IP.
+
+
+
+

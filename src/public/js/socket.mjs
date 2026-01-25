@@ -7,37 +7,11 @@ export const socket = (typeof io !== 'undefined') ? io({ auth: { userId: initial
 
 if (!socket) console.error('Socket.IO client not found');
 
-let _pendingRegisterUserId = initialUserId || null;
-
-function _doRegister(id) {
-    try {
-        if (!id) return;
-        _pendingRegisterUserId = String(id);
-        if (socket && socket.auth) socket.auth.userId = _pendingRegisterUserId;
-        if (socket && socket.connected) {
-            socket.emit('register-user', String(id));
-        }
-    } catch (e) { /* noop */ }
-}
 
 if (socket) {
+    // Optional: Add basic connection logging
     socket.on('connect', () => {
-        if (_pendingRegisterUserId) {
-            try { socket.emit('register-user', _pendingRegisterUserId); } catch (e) { }
-        }
-    });
-
-    socket.on('reconnect_attempt', () => {
-        if (_pendingRegisterUserId && socket && socket.auth) socket.auth.userId = _pendingRegisterUserId;
+        console.log('Socket connected:', socket.id);
     });
 }
 
-export function registerUser(userId) {
-    if (!userId) return;
-    _doRegister(userId);
-}
-
-// Expose legacy global
-if (typeof window !== 'undefined') {
-    window.socketClient = { socket, register: registerUser };
-}
