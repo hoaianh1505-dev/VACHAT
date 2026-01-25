@@ -110,12 +110,7 @@
                     <button type="button" id="emoji-btn" title="Emoji">😊</button>
                     <div id="emoji-picker" style="display:none;"></div>
                     <input type="text" id="message" autocomplete="off" placeholder="Nhập tin nhắn..." />
-                    <!-- AI button removed (AI disabled) -->
-                    <!-- Delete conversation button (inline with AI) -->
-                    <button type="button" id="delete-convo-btn" title="Xóa cuộc trò chuyện"
-                        style="display:none;margin-right:8px;border-radius:12px;padding:8px 12px;border:none;background:#ef4444;color:#fff;cursor:pointer;">
-                        🗑️ Xóa
-                    </button>
+
 
                     <button type="submit" id="send-btn" disabled>Gửi</button>
                 </form>
@@ -172,37 +167,17 @@
         const deleteBtn = document.getElementById('delete-convo-btn');
         const chatPlaceholder = document.getElementById('chat-placeholder');
 
-        function showDeleteFor(chatType, chatId) {
-            if (!deleteBtn) return;
-            deleteBtn.dataset.chatType = chatType;
-            deleteBtn.dataset.chatId = chatId;
-            deleteBtn.style.display = 'inline-flex';
-        }
-        function hideDelete() {
-            if (!deleteBtn) return;
-            deleteBtn.dataset.chatType = '';
-            deleteBtn.dataset.chatId = '';
-            deleteBtn.style.display = 'none';
-        }
-
         // when sidebar item clicked we want quick UX hint for delete: (messages.mjs already opens convo)
         document.addEventListener('click', (e) => {
             const friendItem = e.target.closest('.chat-item.friend-profile');
             const groupItem = e.target.closest('.chat-item[data-type="group"]');
             if (friendItem) {
-                showDeleteFor('friend', friendItem.dataset.id);
                 if (chatPlaceholder) chatPlaceholder.style.display = 'none';
                 return;
             }
             if (groupItem) {
-                showDeleteFor('group', groupItem.dataset.id);
                 if (chatPlaceholder) chatPlaceholder.style.display = 'none';
                 return;
-            }
-            // hide if clicked outside sidebar and delete button
-            if (!e.target.closest('.chat-sidebar') && !e.target.closest('#delete-convo-btn')) {
-                const active = document.querySelector('.chat-item.active');
-                if (!active) hideDelete();
             }
         });
 
@@ -223,7 +198,6 @@
                 if (j && j.success) {
                     const chatBox = document.getElementById('chat-box');
                     if (chatBox) chatBox.innerHTML = '<div class="system-message">Bạn đã xóa cuộc trò chuyện này.</div>';
-                    hideDelete();
                     window.VAChat = window.VAChat || {};
                     window.VAChat.currentChat = null;
                     const li = document.querySelector(`.chat-item[data-id="${chatId}"]`);
@@ -236,14 +210,7 @@
                 if (window.UI && window.UI.alert) await window.UI.alert('Lỗi khi xóa cuộc trò chuyện'); else alert('Lỗi khi xóa cuộc trò chuyện');
             }
         }
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', async (ev) => {
-                ev.stopPropagation();
-                const chatType = deleteBtn.dataset.chatType || (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type);
-                const chatId = deleteBtn.dataset.chatId || (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.id);
-                await doDeleteConversation(chatType, chatId);
-            });
-        }
+        // delete button removed
 
         // delete group conversation (per-group button in sidebar) — DELETE ENTIRE GROUP
         document.addEventListener('click', async (e) => {
@@ -272,7 +239,6 @@
                     if (active) {
                         const chatBox = document.getElementById('chat-box');
                         if (chatBox) chatBox.innerHTML = '<div class="system-message">Nhóm đã bị xóa.</div>';
-                        hideDelete();
                         window.VAChat = window.VAChat || {};
                         window.VAChat.currentChat = null;
                     }
@@ -364,4 +330,3 @@
         })();
     </script>
 
-    <!-- ...existing closing body/html if any ... -->
