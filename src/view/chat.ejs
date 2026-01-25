@@ -136,11 +136,27 @@
         </div>
     </div>
 
+    <!-- add member modal (hidden) -->
+    <div id="add-member-modal"
+        style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:9999;">
+        <div style="background:#23232a;padding:16px;border-radius:12px;min-width:320px;max-width:90vw;color:#e6f4ff;">
+            <h3 style="margin:0 0 8px 0;color:#4f8cff;">Thêm bạn bè vào nhóm</h3>
+            <div id="add-member-list" style="max-height:260px;overflow:auto;margin-bottom:8px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button id="add-member-cancel" class="btn"
+                    style="background:#374151;color:#fff;padding:8px 12px;border-radius:8px;border:none;">Hủy</button>
+                <button id="add-member-confirm" class="btn"
+                    style="background:#4f8cff;color:#07101a;padding:8px 12px;border-radius:8px;border:none;">Thêm</button>
+            </div>
+        </div>
+    </div>
+
     <!-- group context menu -->
     <div id="group-context-menu" class="context-menu" style="display:none;">
         <button type="button" class="context-menu-item" data-action="mark-read">Đánh dấu đã đọc</button>
         <button type="button" class="context-menu-item" data-action="toggle-mute">Im lặng</button>
         <button type="button" class="context-menu-item" data-action="toggle-pin">Ghim</button>
+        <button type="button" class="context-menu-item" data-action="add-member">Thêm bạn bè vào nhóm</button>
         <div class="context-menu-divider"></div>
         <button type="button" class="context-menu-item danger" data-action="leave-group">Rời nhóm chat</button>
     </div>
@@ -164,7 +180,6 @@
         const socket = window.socketClient ? window.socketClient.socket : null;
 
         // helpers
-        const deleteBtn = document.getElementById('delete-convo-btn');
         const chatPlaceholder = document.getElementById('chat-placeholder');
 
         // when sidebar item clicked we want quick UX hint for delete: (messages.mjs already opens convo)

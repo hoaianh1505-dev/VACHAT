@@ -705,6 +705,65 @@ export function initMessages({ socket } = {}) {
     const groupsList = document.getElementById('groups');
     const pinnedSet = loadIdSet(GROUP_PINNED_KEY);
     const mutedSet = loadIdSet(GROUP_MUTED_KEY);
+    const addMemberModal = document.getElementById('add-member-modal');
+    const addMemberList = document.getElementById('add-member-list');
+    const addMemberCancel = document.getElementById('add-member-cancel');
+    const addMemberConfirm = document.getElementById('add-member-confirm');
+
+    function openAddMemberModal(groupId) {
+        if (!addMemberModal || !addMemberList) return;
+        addMemberModal.dataset.groupId = String(groupId || '');
+        addMemberList.innerHTML = '';
+        document.querySelectorAll('.chat-item.friend-profile').forEach(li => {
+            const id = li.dataset.id;
+            const username = li.querySelector('.friend-username') ? li.querySelector('.friend-username').textContent : id;
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.justifyContent = 'space-between';
+            row.style.padding = '6px 8px';
+            row.innerHTML = `<label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" data-id="${id}" /> <span style="color:#cfe7ff">${escapeHtml(username || '')}</span></label>`;
+            addMemberList.appendChild(row);
+        });
+        addMemberModal.style.display = 'flex';
+    }
+
+    function closeAddMemberModal() {
+        if (!addMemberModal) return;
+        addMemberModal.style.display = 'none';
+        addMemberModal.dataset.groupId = '';
+    }
+
+    if (addMemberCancel) addMemberCancel.addEventListener('click', closeAddMemberModal);
+    if (addMemberConfirm) addMemberConfirm.addEventListener('click', async () => {
+        if (!addMemberModal || !addMemberList) return;
+        const groupId = addMemberModal.dataset.groupId;
+        const selected = Array.from(addMemberList.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.dataset.id).filter(Boolean);
+        if (!groupId) return;
+        if (!selected.length) {
+            if (UI && typeof UI.alert === 'function') await UI.alert('Chọn ít nhất 1 bạn');
+            else alert('Chọn ít nhất 1 bạn');
+            return;
+        }
+        addMemberConfirm.disabled = true;
+        try {
+            await Promise.all(selected.map(userId => fetch('/api/groups/add-member', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ groupId, userId })
+            })));
+            if (UI && typeof UI.alert === 'function') await UI.alert('Đã thêm bạn vào nhóm');
+            else alert('Đã thêm bạn vào nhóm');
+            closeAddMemberModal();
+        } catch (e) {
+            console.error(e);
+            if (UI && typeof UI.alert === 'function') await UI.alert('Lỗi thêm bạn');
+            else alert('Lỗi thêm bạn');
+        } finally {
+            addMemberConfirm.disabled = false;
+        }
+    });
 
     function applyGroupState(item) {
         if (!item) return;
@@ -954,6 +1013,7 @@ export function initMessages({ socket } = {}) {
     const groupMenuMute = groupMenu ? groupMenu.querySelector('[data-action="toggle-mute"]') : null;
     const groupMenuPin = groupMenu ? groupMenu.querySelector('[data-action="toggle-pin"]') : null;
     const groupMenuRead = groupMenu ? groupMenu.querySelector('[data-action="mark-read"]') : null;
+    const groupMenuAdd = groupMenu ? groupMenu.querySelector('[data-action="add-member"]') : null;
     const groupMenuLeave = groupMenu ? groupMenu.querySelector('[data-action="leave-group"]') : null;
 
     function hideGroupMenu() {
@@ -969,6 +1029,7 @@ export function initMessages({ socket } = {}) {
         if (groupMenuMute) groupMenuMute.textContent = mutedSet.has(id) ? 'Bỏ im lặng' : 'Im lặng';
         if (groupMenuPin) groupMenuPin.textContent = pinnedSet.has(id) ? 'Bỏ ghim' : 'Ghim';
         if (groupMenuRead) groupMenuRead.textContent = 'Đánh dấu đã đọc';
+        if (groupMenuAdd) groupMenuAdd.textContent = 'Thêm bạn bè vào nhóm';
         if (groupMenuLeave) groupMenuLeave.textContent = 'Rời nhóm chat';
 
         groupMenu.style.display = 'block';
@@ -1030,6 +1091,12 @@ export function initMessages({ socket } = {}) {
                 sortGroups();
                 if (groupMenuPin) groupMenuPin.textContent = pinnedSet.has(groupId) ? 'Bỏ ghim' : 'Ghim';
                 hideGroupMenu();
+                return;
+            }
+
+            if (action === 'add-member') {
+                hideGroupMenu();
+                openAddMemberModal(groupId);
                 return;
             }
 
