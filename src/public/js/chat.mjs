@@ -2,6 +2,9 @@ import UI from './ui.mjs';
 
 // Chat Module
 export function initMessages({ socket } = {}) {
+    document.addEventListener('contextmenu', (e) => {
+        if (!e.target.closest('.context-menu')) e.preventDefault();
+    });
     const form = document.getElementById('chat-form');
     const input = document.getElementById('message');
     const chatBox = document.getElementById('chat-box');

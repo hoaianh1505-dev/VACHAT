@@ -8,6 +8,7 @@ html {
     /* nền đen sâu */
     color: #f3f3f3;
     height: 100%;
+    overflow: hidden;
 }
 
 a {
