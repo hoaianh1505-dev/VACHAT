@@ -352,7 +352,10 @@ export function initMessages({ socket } = {}) {
             e.stopPropagation();
             const isOpen = notifDropdown.style.display === 'block';
             notifDropdown.style.display = isOpen ? 'none' : 'block';
-            if (!isOpen) renderNotifications();
+            if (!isOpen) {
+                renderNotifications();
+                if (notifBadge) notifBadge.style.display = 'none';
+            }
         });
         document.addEventListener('click', () => {
             if (notifDropdown.style.display === 'block') notifDropdown.style.display = 'none';
