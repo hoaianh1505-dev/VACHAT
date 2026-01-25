@@ -26,7 +26,15 @@
                             </span>
             </div>
             <div class="header-actions">
-                <button class="icon-btn" title="Thông báo">🔔</button>
+                <button class="icon-btn" id="notif-btn" title="Thông báo">
+                    🔔
+                    <span id="notif-badge" class="notif-badge" style="display:none;">0</span>
+                </button>
+                <div id="notif-dropdown" class="notif-dropdown" style="display:none;">
+                    <div class="notif-header">Thông báo</div>
+                    <div id="notif-list" class="notif-list"></div>
+                    <div id="notif-empty" class="notif-empty">Không có thông báo</div>
+                </div>
                 <button class="icon-btn" title="Cài đặt">⚙️</button>
                 <form method="POST" action="/logout" class="logout-form" style="display:inline;">
                     <button type="submit">Đăng xuất</button>

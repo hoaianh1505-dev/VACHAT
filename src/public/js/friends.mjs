@@ -98,6 +98,10 @@ export function initFriends({ socket } = {}) {
     if (socket) {
         socket.on('friend-request', (data) => {
             if (String(data.toId) !== String(window.userId)) return;
+            if (window.VAChat && typeof window.VAChat.notify === 'function') {
+                const name = data && data.fromUser && data.fromUser.username ? data.fromUser.username : 'một người';
+                window.VAChat.notify(`Bạn có lời mời kết bạn từ ${name}`);
+            }
             const popup = document.createElement('div');
             popup.className = 'friend-request-popup';
             popup.innerHTML = `
@@ -123,6 +127,10 @@ export function initFriends({ socket } = {}) {
 
         socket.on('friend-accepted', (data) => {
             if (String(data.toId) !== String(window.userId)) return;
+            if (window.VAChat && typeof window.VAChat.notify === 'function') {
+                const name = data && data.fromUser && data.fromUser.username ? data.fromUser.username : 'một người';
+                window.VAChat.notify(`Lời mời kết bạn của bạn đã được ${name} chấp nhận`);
+            }
             const popup = document.createElement('div');
             popup.className = 'friend-request-popup';
             popup.innerHTML = `

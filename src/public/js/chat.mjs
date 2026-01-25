@@ -20,6 +20,7 @@ export function initMessages({ socket } = {}) {
     const FRIEND_PINNED_KEY = 'vachat.friendPinned';
     const FRIEND_MUTED_KEY = 'vachat.friendMuted';
     const STREAK_STORE_KEY = 'vachat.streakMap';
+    const NOTIF_STORE_KEY = 'vachat.notifications';
 
     function loadIdSet(key) {
         try {
@@ -180,6 +181,94 @@ export function initMessages({ socket } = {}) {
     function escapeHtml(str) {
         return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
+
+    const notifBtn = document.getElementById('notif-btn');
+    const notifDropdown = document.getElementById('notif-dropdown');
+    const notifList = document.getElementById('notif-list');
+    const notifEmpty = document.getElementById('notif-empty');
+    const notifBadge = document.getElementById('notif-badge');
+
+    function loadNotifications() {
+        try {
+            const raw = localStorage.getItem(NOTIF_STORE_KEY);
+            const list = raw ? JSON.parse(raw) : [];
+            return Array.isArray(list) ? list : [];
+        } catch (e) { return []; }
+    }
+    function saveNotifications(list) {
+        try { localStorage.setItem(NOTIF_STORE_KEY, JSON.stringify(list || [])); } catch (e) { }
+    }
+    function formatRelative(ts) {
+        const t = new Date(ts);
+        const diff = Date.now() - t.getTime();
+        if (Number.isNaN(diff)) return '';
+        const min = Math.floor(diff / 60000);
+        const hour = Math.floor(diff / 3600000);
+        const day = Math.floor(diff / 86400000);
+        if (min < 1) return 'Vừa xong';
+        if (min < 60) return `${min} phút trước`;
+        if (hour < 24) return `${hour} giờ trước`;
+        if (day < 7) return `${day} ngày trước`;
+        return t.toLocaleDateString('vi-VN');
+    }
+    function updateNotifBadge(list) {
+        if (!notifBadge) return;
+        const count = (list || []).length;
+        if (!count) { notifBadge.style.display = 'none'; return; }
+        notifBadge.textContent = String(count);
+        notifBadge.style.display = 'inline-block';
+    }
+    function renderNotifications() {
+        if (!notifList || !notifEmpty) return;
+        const list = loadNotifications();
+        notifList.innerHTML = '';
+        list.forEach((n, idx) => {
+            const item = document.createElement('div');
+            item.className = 'notif-item';
+            item.innerHTML = `
+                <div>
+                    <div class="notif-text">${escapeHtml(n.text || '')}</div>
+                    <div class="notif-time">${escapeHtml(formatRelative(n.createdAt))}</div>
+                </div>
+                <button class="notif-remove" data-index="${idx}" title="Xóa">✕</button>
+            `;
+            notifList.appendChild(item);
+        });
+        notifEmpty.style.display = list.length ? 'none' : 'block';
+        updateNotifBadge(list);
+    }
+    function addNotification(text) {
+        const list = loadNotifications();
+        list.unshift({ text: String(text || ''), createdAt: Date.now() });
+        if (list.length > 50) list.length = 50;
+        saveNotifications(list);
+        renderNotifications();
+    }
+    if (notifBtn && notifDropdown) {
+        notifBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = notifDropdown.style.display === 'block';
+            notifDropdown.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) renderNotifications();
+        });
+        document.addEventListener('click', () => {
+            if (notifDropdown.style.display === 'block') notifDropdown.style.display = 'none';
+        });
+    }
+    if (notifList) {
+        notifList.addEventListener('click', (e) => {
+            const btn = e.target.closest('.notif-remove');
+            if (!btn) return;
+            const idx = Number(btn.dataset.index);
+            const list = loadNotifications();
+            if (!Number.isNaN(idx)) list.splice(idx, 1);
+            saveNotifications(list);
+            renderNotifications();
+        });
+    }
+    window.VAChat = window.VAChat || {};
+    window.VAChat.notify = addNotification;
+    renderNotifications();
 
     // Floating tooltip for create group button
     let floatingTooltip;
@@ -1258,6 +1347,15 @@ export function initMessages({ socket } = {}) {
                         const cur = parseInt(badge.textContent || '0', 10);
                         badge.textContent = String(cur + 1);
                         badge.style.display = 'inline-block';
+                    }
+                }
+                if (!data.isSelf && window.VAChat && typeof window.VAChat.notify === 'function') {
+                    if (chatType === 'friend') {
+                        const { username } = getFriendInfo(data.from);
+                        window.VAChat.notify(`Bạn có tin nhắn mới từ ${username || 'bạn bè'}`);
+                    } else {
+                        const gName = item && item.dataset ? item.dataset.groupName : '';
+                        window.VAChat.notify(`Tin nhắn mới trong nhóm ${gName || 'Group'}`);
                     }
                 }
             }
