@@ -14,6 +14,8 @@ export function initMessages({ socket } = {}) {
     const EMOJIS = ['😀', '😂', '😍', '👍', '🎉', '🔥', '🙏', '😢', '😎', '🤔', '😅', '👏', '💯', '🎁', '🥳'];
     const GROUP_PINNED_KEY = 'vachat.groupPinned';
     const GROUP_MUTED_KEY = 'vachat.groupMuted';
+    const FRIEND_PINNED_KEY = 'vachat.friendPinned';
+    const FRIEND_MUTED_KEY = 'vachat.friendMuted';
     const STREAK_STORE_KEY = 'vachat.streakMap';
 
     function loadIdSet(key) {
@@ -552,7 +554,27 @@ export function initMessages({ socket } = {}) {
     window.VAChat.showDeleteFor = (t, id) => { const dd = getDeleteBtn(); if (!dd) return; dd.dataset.chatType = t; dd.dataset.chatId = id; dd.style.display = 'inline-flex'; };
 
     const friendsList = document.getElementById('friends');
+    const pinnedFriendSet = loadIdSet(FRIEND_PINNED_KEY);
+    const mutedFriendSet = loadIdSet(FRIEND_MUTED_KEY);
+
+    function applyFriendState(item) {
+        if (!item) return;
+        const id = String(item.dataset.id || '');
+        item.classList.toggle('pinned', pinnedFriendSet.has(id));
+        item.classList.toggle('muted', mutedFriendSet.has(id));
+    }
+
+    function sortFriends() {
+        if (!friendsList) return;
+        const items = Array.from(friendsList.querySelectorAll('.chat-item.friend-profile'));
+        const pinnedIds = Array.from(pinnedFriendSet);
+        const pinnedItems = pinnedIds.map(id => items.find(i => String(i.dataset.id) === String(id))).filter(Boolean);
+        const others = items.filter(i => !pinnedFriendSet.has(String(i.dataset.id)));
+        [...pinnedItems, ...others].forEach(el => friendsList.appendChild(el));
+    }
     if (friendsList) {
+        Array.from(friendsList.querySelectorAll('.chat-item.friend-profile')).forEach(applyFriendState);
+        sortFriends();
         friendsList.addEventListener('click', async (e) => {
             const item = e.target.closest('.chat-item.friend-profile');
             if (!item) return;
@@ -629,6 +651,148 @@ export function initMessages({ socket } = {}) {
             if (input) input.focus();
             window.VAChat.showDeleteFor('group', chatId);
             setInputVisible(true);
+        });
+    }
+
+    // Friend context menu (right click)
+    const friendMenu = document.getElementById('friend-context-menu');
+    const friendMenuMute = friendMenu ? friendMenu.querySelector('[data-action="toggle-mute"]') : null;
+    const friendMenuPin = friendMenu ? friendMenu.querySelector('[data-action="toggle-pin"]') : null;
+
+    function hideFriendMenu() {
+        if (!friendMenu) return;
+        friendMenu.style.display = 'none';
+        friendMenu.dataset.friendId = '';
+    }
+
+    function openFriendMenu(item, x, y) {
+        if (!friendMenu || !item) return;
+        const id = String(item.dataset.id || '');
+        friendMenu.dataset.friendId = id;
+        if (friendMenuMute) friendMenuMute.textContent = mutedFriendSet.has(id) ? 'Bỏ im lặng' : 'Im lặng';
+        if (friendMenuPin) friendMenuPin.textContent = pinnedFriendSet.has(id) ? 'Bỏ ghim 📎' : 'Ghim 📎';
+        friendMenu.style.display = 'block';
+        friendMenu.style.left = '0px';
+        friendMenu.style.top = '0px';
+        requestAnimationFrame(() => {
+            const rect = friendMenu.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width - 8;
+            const maxY = window.innerHeight - rect.height - 8;
+            friendMenu.style.left = `${Math.max(8, Math.min(x, maxX))}px`;
+            friendMenu.style.top = `${Math.max(8, Math.min(y, maxY))}px`;
+        });
+    }
+
+    document.addEventListener('contextmenu', (e) => {
+        const item = e.target.closest('.chat-item.friend-profile');
+        if (!item) return;
+        e.preventDefault();
+        openFriendMenu(item, e.clientX, e.clientY);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (friendMenu && friendMenu.style.display === 'block') {
+            if (!e.target.closest('#friend-context-menu')) hideFriendMenu();
+        }
+    });
+
+    if (friendMenu) {
+        friendMenu.addEventListener('click', async (e) => {
+            const action = e.target && e.target.dataset ? e.target.dataset.action : '';
+            if (!action) return;
+            const friendId = friendMenu.dataset.friendId;
+            if (!friendId) return;
+
+            const item = friendsList ? friendsList.querySelector(`.chat-item.friend-profile[data-id="${friendId}"]`) : null;
+
+            if (action === 'mark-read') {
+                if (item) {
+                    const badge = item.querySelector('.unread-badge');
+                    if (badge) badge.style.display = 'none';
+                }
+                hideFriendMenu();
+                return;
+            }
+
+            if (action === 'toggle-mute') {
+                if (mutedFriendSet.has(friendId)) mutedFriendSet.delete(friendId); else mutedFriendSet.add(friendId);
+                saveIdSet(FRIEND_MUTED_KEY, mutedFriendSet);
+                applyFriendState(item);
+                if (friendMenuMute) friendMenuMute.textContent = mutedFriendSet.has(friendId) ? 'Bỏ im lặng' : 'Im lặng';
+                hideFriendMenu();
+                return;
+            }
+
+            if (action === 'toggle-pin') {
+                if (pinnedFriendSet.has(friendId)) pinnedFriendSet.delete(friendId); else pinnedFriendSet.add(friendId);
+                saveIdSet(FRIEND_PINNED_KEY, pinnedFriendSet);
+                applyFriendState(item);
+                sortFriends();
+                if (friendMenuPin) friendMenuPin.textContent = pinnedFriendSet.has(friendId) ? 'Bỏ ghim 📎' : 'Ghim 📎';
+                hideFriendMenu();
+                return;
+            }
+
+            if (action === 'delete-convo') {
+                const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Xóa cuộc trò chuyện sẽ xóa toàn bộ tin nhắn. Bạn chắc chắn?') : confirm('Xóa cuộc trò chuyện sẽ xóa toàn bộ tin nhắn. Bạn chắc chắn?');
+                if (!ok) return;
+                try {
+                    const r = await fetch('/api/messages/delete-conversation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ chatType: 'friend', chatId: friendId })
+                    });
+                    if (r.status === 401) return window.location.href = '/login';
+                    const j = await r.json();
+                    if (j && j.success) {
+                        if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type === 'friend' && String(window.VAChat.currentChat.id) === String(friendId)) {
+                            window.VAChat.currentChat = null;
+                            persistCurrentChat();
+                            const chatBox = document.getElementById('chat-box'); if (chatBox) chatBox.innerHTML = '<div class="system-message">Bạn đã xóa cuộc trò chuyện này.</div>';
+                            const dd = getDeleteBtn(); if (dd) dd.style.display = 'none';
+                        }
+                    } else {
+                        if (window.UI && window.UI.alert) await window.UI.alert(j && j.error ? j.error : 'Xóa thất bại'); else alert(j && j.error ? j.error : 'Xóa thất bại');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    if (window.UI && window.UI.alert) await window.UI.alert('Lỗi khi xóa cuộc trò chuyện'); else alert('Lỗi khi xóa cuộc trò chuyện');
+                } finally {
+                    hideFriendMenu();
+                }
+                return;
+            }
+
+            if (action === 'remove-friend') {
+                const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Bạn có chắc muốn xóa bạn này?') : confirm('Bạn có chắc muốn xóa bạn này?');
+                if (!ok) return;
+                try {
+                    const res = await fetch('/api/friends/remove', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ friendId })
+                    });
+                    if (res.status === 401) return window.location.href = '/login';
+                    const jr = await res.json();
+                    if (jr && jr.success) {
+                        if (item) item.remove();
+                        pinnedFriendSet.delete(friendId);
+                        mutedFriendSet.delete(friendId);
+                        saveIdSet(FRIEND_PINNED_KEY, pinnedFriendSet);
+                        saveIdSet(FRIEND_MUTED_KEY, mutedFriendSet);
+                    } else {
+                        if (window.UI && window.UI.alert) await window.UI.alert(jr && jr.error ? jr.error : 'Lỗi xóa bạn'); else alert(jr && jr.error ? jr.error : 'Lỗi xóa bạn');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    if (window.UI && window.UI.alert) await window.UI.alert('Lỗi xóa bạn'); else alert('Lỗi xóa bạn');
+                } finally {
+                    hideFriendMenu();
+                }
+                return;
+            }
         });
     }
 
