@@ -674,6 +674,18 @@ a {
     box-shadow: 0 2px 12px rgba(37, 99, 235, 0.13);
 }
 
+.message-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+    border-width: 1px;
+    line-height: 1;
+}
+
+.message-avatar.avatar-text {
+    font-size: 0.7rem;
+}
+
 #chat-form {
     display: flex;
     align-items: center;

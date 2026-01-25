@@ -300,9 +300,11 @@ export function initMessages({ socket } = {}) {
         const timeLabel = formatTimeLabel(ts);
         if (!payload.isSelf) {
             const { avatar, username } = getFriendInfo(payload.from);
+            const initials = (username || '').trim().slice(0, 2).toUpperCase() || '??';
             div.innerHTML = `
                 <div style="display:flex;align-items:flex-end;gap:8px;">
-                    <img src="${avatar || '/public/avatar.png'}" class="avatar" style="width:28px;height:28px;">
+                    ${avatar ? `<img src="${avatar}" class="avatar message-avatar">`
+                        : `<div class="avatar avatar-text message-avatar">${escapeHtml(initials)}</div>`}
                     <div>
                         <div style="font-size:0.95rem;color:#7abfff;font-weight:600;margin-bottom:2px;">${escapeHtml(username || '')}</div>
                         <div class="message-text">${escapeHtml(String(text || ''))}</div>
