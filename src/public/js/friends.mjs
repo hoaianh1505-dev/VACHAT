@@ -98,9 +98,12 @@ export function initFriends({ socket } = {}) {
     if (socket) {
         socket.on('friend-request', (data) => {
             if (String(data.toId) !== String(window.userId)) return;
-            if (window.VAChat && typeof window.VAChat.notify === 'function') {
-                const name = data && data.fromUser && data.fromUser.username ? data.fromUser.username : 'một người';
-                window.VAChat.notify(`Bạn có lời mời kết bạn từ ${name}`);
+            const s = window.VAChat && window.VAChat.getSettings ? window.VAChat.getSettings() : { dnd: false, muteFriendReq: false };
+            if (!s.dnd && !s.muteFriendReq) {
+                if (window.VAChat && typeof window.VAChat.notify === 'function') {
+                    const name = data && data.fromUser && data.fromUser.username ? data.fromUser.username : 'một người';
+                    window.VAChat.notify(`Bạn có lời mời kết bạn từ ${name}`);
+                }
             }
             const popup = document.createElement('div');
             popup.className = 'friend-request-popup';
@@ -127,9 +130,12 @@ export function initFriends({ socket } = {}) {
 
         socket.on('friend-accepted', (data) => {
             if (String(data.toId) !== String(window.userId)) return;
-            if (window.VAChat && typeof window.VAChat.notify === 'function') {
-                const name = data && data.fromUser && data.fromUser.username ? data.fromUser.username : 'một người';
-                window.VAChat.notify(`Lời mời kết bạn của bạn đã được ${name} chấp nhận`);
+            const s = window.VAChat && window.VAChat.getSettings ? window.VAChat.getSettings() : { dnd: false, muteFriendReq: false };
+            if (!s.dnd && !s.muteFriendReq) {
+                if (window.VAChat && typeof window.VAChat.notify === 'function') {
+                    const name = data && data.fromUser && data.fromUser.username ? data.fromUser.username : 'một người';
+                    window.VAChat.notify(`Lời mời kết bạn của bạn đã được ${name} chấp nhận`);
+                }
             }
             const popup = document.createElement('div');
             popup.className = 'friend-request-popup';

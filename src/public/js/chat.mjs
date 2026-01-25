@@ -21,6 +21,8 @@ export function initMessages({ socket } = {}) {
     const FRIEND_MUTED_KEY = 'vachat.friendMuted';
     const STREAK_STORE_KEY = 'vachat.streakMap';
     const NOTIF_STORE_KEY = 'vachat.notifications';
+    const SETTINGS_KEY = 'vachat.settings';
+    const PROFILE_KEY = 'vachat.profileOverride';
 
     function loadIdSet(key) {
         try {
@@ -192,6 +194,90 @@ export function initMessages({ socket } = {}) {
     const userSettingsBtn = document.getElementById('user-settings-btn');
     const userSettingsModal = document.getElementById('user-settings-modal');
     const userSettingsClose = document.getElementById('user-settings-close');
+    const profileAvatar = document.getElementById('profile-avatar');
+    const changeAvatarBtn = document.getElementById('change-avatar-btn');
+    const avatarInput = document.getElementById('avatar-input');
+    const usernameInput = document.getElementById('username-input');
+    const changeUsernameBtn = document.getElementById('change-username-btn');
+    const usernameHint = document.getElementById('username-hint');
+    const profileEmail = document.getElementById('profile-email');
+    const toggleDnd = document.getElementById('toggle-dnd');
+    const toggleFriendReq = document.getElementById('toggle-friend-requests');
+    const toggleMsgNotifs = document.getElementById('toggle-message-notifs');
+    const themeButtons = document.querySelectorAll('.theme-btn');
+
+    function loadSettings() {
+        try {
+            const raw = localStorage.getItem(SETTINGS_KEY);
+            const s = raw ? JSON.parse(raw) : {};
+            return { dnd: !!s.dnd, muteFriendReq: !!s.muteFriendReq, muteMessages: !!s.muteMessages, theme: s.theme || 'dark' };
+        } catch (e) { return { dnd: false, muteFriendReq: false, muteMessages: false, theme: 'dark' }; }
+    }
+    function saveSettings(s) {
+        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s || {})); } catch (e) { }
+    }
+    function loadProfileOverride() {
+        try {
+            const raw = localStorage.getItem(PROFILE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) { return {}; }
+    }
+    function saveProfileOverride(p) {
+        try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p || {})); } catch (e) { }
+    }
+
+    function applyTheme(theme) {
+        document.body.classList.remove('theme-light', 'theme-ash', 'theme-dark');
+        document.body.classList.add(`theme-${theme}`);
+        themeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.theme === theme));
+    }
+
+    function applyProfileUI() {
+        const override = loadProfileOverride();
+        const headerName = document.querySelector('.chat-header .username');
+        const headerAvatarImg = document.querySelector('.chat-header .avatar img');
+        const headerAvatarText = document.querySelector('.chat-header .avatar-text');
+        const currentName = override.username || (headerName ? headerName.textContent : 'User');
+        if (headerName) headerName.textContent = currentName;
+        if (usernameInput) usernameInput.value = currentName;
+        const emailEl = document.querySelector('.chat-header .username');
+        if (profileEmail) profileEmail.textContent = (window.userEmail || '') || '—';
+
+        const avatarUrl = override.avatar || '';
+        if (profileAvatar) {
+            if (avatarUrl) {
+                profileAvatar.innerHTML = `<img src="${avatarUrl}" class="avatar" style="width:64px;height:64px;">`;
+                profileAvatar.classList.remove('avatar-text');
+            } else {
+                const initials = String(currentName || 'US').trim().slice(0, 2).toUpperCase();
+                profileAvatar.classList.add('avatar-text');
+                profileAvatar.textContent = initials || 'US';
+            }
+        }
+        if (avatarUrl) {
+            if (headerAvatarImg) headerAvatarImg.src = avatarUrl;
+        } else {
+            if (headerAvatarText) headerAvatarText.textContent = String(currentName || 'US').trim().slice(0, 2).toUpperCase();
+        }
+    }
+
+    function canChangeUsername() {
+        const override = loadProfileOverride();
+        const last = override.usernameChangedAt || 0;
+        const limit = 30 * 24 * 60 * 60 * 1000;
+        return Date.now() - last >= limit;
+    }
+
+    function updateUsernameHint() {
+        if (!usernameHint) return;
+        if (canChangeUsername()) {
+            usernameHint.textContent = 'Có thể đổi lại sau 30 ngày.';
+        } else {
+            const override = loadProfileOverride();
+            const next = new Date((override.usernameChangedAt || 0) + 30 * 24 * 60 * 60 * 1000);
+            usernameHint.textContent = `Có thể đổi lại vào ${next.toLocaleDateString('vi-VN')}`;
+        }
+    }
 
     function loadNotifications() {
         try {
@@ -273,6 +359,8 @@ export function initMessages({ socket } = {}) {
         userSettingsBtn.addEventListener('click', async () => {
             if (settingsDropdown) settingsDropdown.style.display = 'none';
             if (userSettingsModal) userSettingsModal.style.display = 'flex';
+            applyProfileUI();
+            updateUsernameHint();
         });
     }
     if (userSettingsClose && userSettingsModal) {
@@ -293,6 +381,73 @@ export function initMessages({ socket } = {}) {
             });
         });
     }
+
+    if (changeAvatarBtn && avatarInput) {
+        changeAvatarBtn.addEventListener('click', () => avatarInput.click());
+        avatarInput.addEventListener('change', () => {
+            const file = avatarInput.files && avatarInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const override = loadProfileOverride();
+                override.avatar = reader.result;
+                saveProfileOverride(override);
+                applyProfileUI();
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (changeUsernameBtn && usernameInput) {
+        changeUsernameBtn.addEventListener('click', async () => {
+            if (!canChangeUsername()) {
+                if (UI && typeof UI.alert === 'function') await UI.alert('Bạn chỉ có thể đổi username sau 30 ngày.');
+                else alert('Bạn chỉ có thể đổi username sau 30 ngày.');
+                return;
+            }
+            const nextName = String(usernameInput.value || '').trim();
+            if (!nextName) return;
+            const override = loadProfileOverride();
+            override.username = nextName;
+            override.usernameChangedAt = Date.now();
+            saveProfileOverride(override);
+            applyProfileUI();
+            updateUsernameHint();
+        });
+    }
+
+    const settings = loadSettings();
+    if (toggleDnd) toggleDnd.checked = settings.dnd;
+    if (toggleFriendReq) toggleFriendReq.checked = settings.muteFriendReq;
+    if (toggleMsgNotifs) toggleMsgNotifs.checked = settings.muteMessages;
+    applyTheme(settings.theme);
+
+    if (toggleDnd || toggleFriendReq || toggleMsgNotifs) {
+        const update = () => {
+            const s = loadSettings();
+            s.dnd = toggleDnd ? !!toggleDnd.checked : s.dnd;
+            s.muteFriendReq = toggleFriendReq ? !!toggleFriendReq.checked : s.muteFriendReq;
+            s.muteMessages = toggleMsgNotifs ? !!toggleMsgNotifs.checked : s.muteMessages;
+            saveSettings(s);
+        };
+        if (toggleDnd) toggleDnd.addEventListener('change', update);
+        if (toggleFriendReq) toggleFriendReq.addEventListener('change', update);
+        if (toggleMsgNotifs) toggleMsgNotifs.addEventListener('change', update);
+    }
+
+    if (themeButtons && themeButtons.length) {
+        themeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const s = loadSettings();
+                s.theme = btn.dataset.theme || 'dark';
+                saveSettings(s);
+                applyTheme(s.theme);
+            });
+        });
+    }
+
+    window.VAChat = window.VAChat || {};
+    window.VAChat.getSettings = loadSettings;
     if (notifList) {
         notifList.addEventListener('click', (e) => {
             const btn = e.target.closest('.notif-remove');
@@ -1402,6 +1557,8 @@ export function initMessages({ socket } = {}) {
                     }
                 }
                 if (!data.isSelf && window.VAChat && typeof window.VAChat.notify === 'function') {
+                    const s = window.VAChat.getSettings ? window.VAChat.getSettings() : { dnd: false, muteMessages: false };
+                    if (s.dnd || s.muteMessages) return;
                     if (chatType === 'friend') {
                         const { username } = getFriendInfo(data.from);
                         window.VAChat.notify(`Bạn có tin nhắn mới từ ${username || 'bạn bè'}`);

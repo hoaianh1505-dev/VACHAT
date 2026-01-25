@@ -9,7 +9,16 @@
 </head>
 
 <body>
-    <script>window.userId = "<%= user && user._id ? user._id : '' %>";</script>
+    <script>
+        window.userId = "<%= user && user._id ? user._id : '' %>";
+        window.userProfile = {
+            _id: "<%= user && user._id ? user._id : '' %>",
+            username: "<%= user && user.username ? user.username : '' %>",
+            email: "<%= user && user.email ? user.email : '' %>",
+            avatar: "<%= user && user.avatar ? user.avatar : '' %>",
+            lastUsernameChangedAt: "<%= user && user.lastUsernameChangedAt ? user.lastUsernameChangedAt.toISOString() : '' %>"
+        };
+    </script>
 
     <div class="chat-container">
         <header class="chat-header">
@@ -199,15 +208,58 @@
             <div class="user-settings-content">
                 <div class="user-settings-pane active" data-pane="profile">
                     <h3>Profile</h3>
-                    <p>Thông tin người dùng sẽ hiển thị ở đây.</p>
+                    <div class="profile-row">
+                        <div id="profile-avatar" class="avatar avatar-text profile-avatar">US</div>
+                        <div class="profile-info">
+                            <button type="button" id="change-avatar-btn" class="btn profile-btn">Thay avatar</button>
+                            <input type="file" id="avatar-input" accept="image/*" style="display:none;" />
+                            <div class="profile-hint">Ảnh mới sẽ hiển thị cho bạn trên trình duyệt này.</div>
+                        </div>
+                    </div>
+                    <div class="profile-field">
+                        <label>Username</label>
+                        <div class="profile-inline">
+                            <input type="text" id="username-input" placeholder="Tên người dùng" />
+                            <button type="button" id="change-username-btn" class="btn profile-btn">Đổi</button>
+                        </div>
+                        <div id="username-hint" class="profile-hint">Có thể đổi lại sau 30 ngày.</div>
+                    </div>
+                    <div class="profile-field">
+                        <label>Gmail</label>
+                        <div id="profile-email" class="profile-value">—</div>
+                    </div>
                 </div>
                 <div class="user-settings-pane" data-pane="notifications">
                     <h3>Thông báo</h3>
-                    <p>Cài đặt thông báo sẽ hiển thị ở đây.</p>
+                    <div class="toggle-row">
+                        <span>Đừng làm phiền</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-dnd" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <span>Tắt thông báo lời mời kết bạn</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-friend-requests" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <span>Tắt thông báo tin nhắn</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-message-notifs" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
                 <div class="user-settings-pane" data-pane="app">
                     <h3>App setting</h3>
-                    <p>Cài đặt ứng dụng sẽ hiển thị ở đây.</p>
+                    <div class="theme-row">
+                        <button type="button" class="theme-btn" data-theme="light">Light</button>
+                        <button type="button" class="theme-btn" data-theme="ash">Ash</button>
+                        <button type="button" class="theme-btn" data-theme="dark">Dark</button>
+                    </div>
                 </div>
             </div>
             <button type="button" id="user-settings-close" class="user-settings-close">✕</button>

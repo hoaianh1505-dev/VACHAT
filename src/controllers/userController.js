@@ -14,3 +14,17 @@ exports.getProfile = asyncHandler(async (req, res) => {
     const user = await userService.getById(sessionUser._id);
     return response.ok(res, { user });
 });
+
+exports.updateProfile = asyncHandler(async (req, res) => {
+    const sessionUser = req.session && req.session.user;
+    if (!sessionUser) return response.err(res, 'Unauthorized', 401);
+    const { avatar, username } = req.body || {};
+    const user = await userService.updateProfile({ userId: sessionUser._id, avatar, username });
+    if (req.session && req.session.user) {
+        req.session.user.username = user.username;
+        req.session.user.avatar = user.avatar;
+        req.session.user.email = user.email;
+        req.session.user.lastUsernameChangedAt = user.lastUsernameChangedAt || null;
+    }
+    return response.ok(res, { user });
+});
