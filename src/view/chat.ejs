@@ -82,8 +82,6 @@
                                 <span class="friend-username">
                                     <%= friend.username %>
                                 </span>
-                                <button class="remove-friend-btn" data-id="<%= friend._id %>"
-                                    title="Xóa bạn">🗑️</button>
                             </li>
                             <% }) %>
                     </ul>
@@ -139,6 +137,16 @@
         <button type="button" class="context-menu-item" data-action="toggle-pin">Ghim</button>
         <div class="context-menu-divider"></div>
         <button type="button" class="context-menu-item danger" data-action="leave-group">Rời nhóm chat</button>
+    </div>
+
+    <!-- friend context menu -->
+    <div id="friend-context-menu" class="context-menu" style="display:none;">
+        <button type="button" class="context-menu-item" data-action="mark-read">Đánh dấu đã đọc</button>
+        <button type="button" class="context-menu-item" data-action="toggle-mute">Im lặng</button>
+        <button type="button" class="context-menu-item" data-action="toggle-pin">Ghim 📎</button>
+        <div class="context-menu-divider"></div>
+        <button type="button" class="context-menu-item" data-action="delete-convo">Xóa cuộc trò chuyện</button>
+        <button type="button" class="context-menu-item danger" data-action="remove-friend">Xóa bạn bè</button>
     </div>
 
     <!-- socket + ui modal lib -->
@@ -225,35 +233,6 @@
                 await doDeleteConversation(chatType, chatId);
             });
         }
-
-        // remove friend -> API
-        document.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.remove-friend-btn');
-            if (!btn) return;
-            e.stopPropagation();
-            const friendId = btn.dataset.id;
-            const ok = window.UI && window.UI.confirm ? await window.UI.confirm('Bạn có chắc muốn xóa bạn này?') : confirm('Bạn có chắc muốn xóa bạn này?');
-            if (!ok) return;
-            try {
-                const res = await fetch('/api/friends/remove', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ friendId })
-                });
-                if (res.status === 401) return window.location.href = '/login';
-                const jr = await res.json();
-                if (jr && jr.success) {
-                    const el = btn.closest('.friend-profile') || btn.closest('.chat-item.friend-profile');
-                    if (el) el.remove();
-                } else {
-                    if (window.UI && window.UI.alert) await window.UI.alert(jr && jr.error ? jr.error : 'Lỗi xóa bạn'); else alert(jr && jr.error ? jr.error : 'Lỗi xóa bạn');
-                }
-            } catch (err) {
-                console.error(err);
-                if (window.UI && window.UI.alert) await window.UI.alert('Lỗi xóa bạn'); else alert('Lỗi xóa bạn');
-            }
-        });
 
         // delete group conversation (per-group button in sidebar) — DELETE ENTIRE GROUP
         document.addEventListener('click', async (e) => {

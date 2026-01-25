@@ -14,6 +14,7 @@ export function initMessages({ socket } = {}) {
     const EMOJIS = ['😀', '😂', '😍', '👍', '🎉', '🔥', '🙏', '😢', '😎', '🤔', '😅', '👏', '💯', '🎁', '🥳'];
     const GROUP_PINNED_KEY = 'vachat.groupPinned';
     const GROUP_MUTED_KEY = 'vachat.groupMuted';
+    const STREAK_STORE_KEY = 'vachat.streakMap';
 
     function loadIdSet(key) {
         try {
@@ -24,6 +25,56 @@ export function initMessages({ socket } = {}) {
     }
     function saveIdSet(key, set) {
         try { localStorage.setItem(key, JSON.stringify(Array.from(set))); } catch (e) { }
+    }
+
+    function loadStreakMap() {
+        try {
+            const raw = localStorage.getItem(STREAK_STORE_KEY);
+            const obj = raw ? JSON.parse(raw) : {};
+            return obj && typeof obj === 'object' ? obj : {};
+        } catch (e) { return {}; }
+    }
+    function saveStreakMap(map) {
+        try { localStorage.setItem(STREAK_STORE_KEY, JSON.stringify(map || {})); } catch (e) { }
+    }
+    function streakKey(chatType, chatId) {
+        return `${String(chatType)}:${String(chatId)}`;
+    }
+    function renderStreakBadge(item, streak) {
+        if (!item) return;
+        let badge = item.querySelector('.streak-badge');
+        if (streak >= 2) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'streak-badge';
+                item.appendChild(badge);
+            }
+            badge.textContent = `🔥${streak}`;
+            badge.title = `Streak ${streak} ngày`;
+        } else if (badge) {
+            badge.remove();
+        }
+    }
+    function setStoredStreak(chatType, chatId, streak, lastDay) {
+        const map = loadStreakMap();
+        const key = streakKey(chatType, chatId);
+        if (streak >= 2) map[key] = { streak, lastDay: lastDay ?? null, updatedAt: Date.now() };
+        else delete map[key];
+        saveStreakMap(map);
+    }
+    function applyStoredStreakBadges() {
+        const map = loadStreakMap();
+        const items = [
+            ...Array.from(document.querySelectorAll('.chat-item.friend-profile')),
+            ...Array.from(document.querySelectorAll('.chat-item[data-type="group"]'))
+        ];
+        items.forEach(item => {
+            const type = item.classList.contains('friend-profile') ? 'friend' : (item.dataset.type || 'group');
+            const id = item.dataset.id;
+            const key = streakKey(type, id);
+            const entry = map[key];
+            renderStreakBadge(item, entry && entry.streak ? entry.streak : 0);
+        });
     }
 
     function getChatItem(chatType, chatId) {
@@ -68,33 +119,43 @@ export function initMessages({ socket } = {}) {
                 .map(m => toDayNumber(m.createdAt || m.createdAtAt || m.time || m.timestamp || m.date))
                 .filter(v => v != null)
         )).sort((a, b) => b - a);
-        if (!dayNums.length) return 0;
+        if (!dayNums.length) return { streak: 0, lastDay: null };
         const today = toDayNumber(new Date());
-        if (dayNums[0] !== today) return 0;
+        if (dayNums[0] !== today) return { streak: 0, lastDay: dayNums[0] };
         let streak = 1;
         for (let i = 1; i < dayNums.length; i += 1) {
             if (dayNums[i - 1] - dayNums[i] === 1) streak += 1;
             else break;
         }
-        return streak;
+        return { streak, lastDay: dayNums[0] };
     }
 
     function updateStreakBadge(chatType, chatId, messages) {
         const item = getChatItem(chatType, chatId);
-        if (!item) return;
-        const streak = calculateStreak(messages);
-        let badge = item.querySelector('.streak-badge');
-        if (streak >= 2) {
-            if (!badge) {
-                badge = document.createElement('span');
-                badge.className = 'streak-badge';
-                item.appendChild(badge);
-            }
-            badge.textContent = `🔥${streak}`;
-            badge.title = `Streak ${streak} ngày`;
-        } else if (badge) {
-            badge.remove();
+        const result = calculateStreak(messages);
+        if (item) renderStreakBadge(item, result.streak);
+        setStoredStreak(chatType, chatId, result.streak, result.lastDay);
+    }
+
+    function updateStreakFromMessage(chatType, chatId, createdAt) {
+        const dayNum = toDayNumber(createdAt);
+        if (dayNum == null) return;
+        const map = loadStreakMap();
+        const key = streakKey(chatType, chatId);
+        const entry = map[key] || { streak: 0, lastDay: null };
+        if (entry.lastDay === dayNum) {
+            // no change
+        } else if (entry.lastDay === dayNum - 1) {
+            entry.streak = (entry.streak || 0) + 1;
+            entry.lastDay = dayNum;
+        } else {
+            entry.streak = 1;
+            entry.lastDay = dayNum;
         }
+        map[key] = entry;
+        saveStreakMap(map);
+        const item = getChatItem(chatType, chatId);
+        if (item) renderStreakBadge(item, entry.streak);
     }
 
     function clearAllStreakBadges() {
@@ -186,7 +247,6 @@ export function initMessages({ socket } = {}) {
             const chatBox = document.getElementById('chat-box'); if (chatBox) chatBox.innerHTML = '<div class="system-message">Chọn bạn bè để bắt đầu nhắn tin.</div>';
             const dd = getDeleteBtn(); if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             setInputVisible(false);
-            clearAllStreakBadges();
         });
     }
 
@@ -266,6 +326,10 @@ export function initMessages({ socket } = {}) {
 
         if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type && window.VAChat.currentChat.id) {
             updateStreakBadge(window.VAChat.currentChat.type, window.VAChat.currentChat.id, window.VAChat.lastMessages);
+        }
+
+        if (payload.chat && payload.chat.type && payload.chat.id) {
+            updateStreakFromMessage(payload.chat.type, payload.chat.id, ts);
         }
 
         // auto mark read for active friend chat
@@ -400,7 +464,6 @@ export function initMessages({ socket } = {}) {
             if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             return;
         }
-        clearAllStreakBadges();
         setInputVisible(chatType === 'friend' || chatType === 'group');
         setSendEnabled(false);
         showLoading();
@@ -481,7 +544,6 @@ export function initMessages({ socket } = {}) {
     if (!savedChat) {
         setPrivateActive(true);
         setInputVisible(false);
-        clearAllStreakBadges();
     }
 
     window.VAChat = window.VAChat || {};
@@ -550,6 +612,8 @@ export function initMessages({ socket } = {}) {
             hideFloatingTooltip();
         });
     }
+
+    applyStoredStreakBadges();
     if (groupsList) {
         groupsList.addEventListener('click', async (e) => {
             const item = e.target.closest('.chat-item[data-type="group"]');
