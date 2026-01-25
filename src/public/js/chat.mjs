@@ -562,6 +562,22 @@ export function initMessages({ socket } = {}) {
         const id = String(item.dataset.id || '');
         item.classList.toggle('pinned', pinnedFriendSet.has(id));
         item.classList.toggle('muted', mutedFriendSet.has(id));
+        const status = item.querySelector('.friend-status-icon');
+        if (status) {
+            if (pinnedFriendSet.has(id) && mutedFriendSet.has(id)) {
+                status.textContent = '📌🔇';
+                status.style.display = 'inline-flex';
+            } else if (pinnedFriendSet.has(id)) {
+                status.textContent = '📌';
+                status.style.display = 'inline-flex';
+            } else if (mutedFriendSet.has(id)) {
+                status.textContent = '🔇';
+                status.style.display = 'inline-flex';
+            } else {
+                status.textContent = '';
+                status.style.display = 'none';
+            }
+        }
     }
 
     function sortFriends() {
@@ -602,6 +618,22 @@ export function initMessages({ socket } = {}) {
         const id = String(item.dataset.id || '');
         item.classList.toggle('pinned', pinnedSet.has(id));
         item.classList.toggle('muted', mutedSet.has(id));
+        const status = item.querySelector('.group-status-icon');
+        if (status) {
+            if (pinnedSet.has(id) && mutedSet.has(id)) {
+                status.textContent = '🔇📌';
+                status.style.display = 'inline-flex';
+            } else if (pinnedSet.has(id)) {
+                status.textContent = '📌';
+                status.style.display = 'inline-flex';
+            } else if (mutedSet.has(id)) {
+                status.textContent = '🔇';
+                status.style.display = 'inline-flex';
+            } else {
+                status.textContent = '';
+                status.style.display = 'none';
+            }
+        }
     }
 
     function sortGroups() {
