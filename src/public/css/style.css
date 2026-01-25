@@ -509,6 +509,44 @@ a {
     padding: 0 24px;
 }
 
+.group-members-panel {
+    margin-bottom: 18px;
+    padding: 0 24px;
+}
+
+.group-members-panel h3 {
+    font-size: 1rem;
+    margin-bottom: 10px;
+    color: #4f8cff;
+    font-weight: 600;
+}
+
+#group-members {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.group-member-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #23232a;
+    background: #18181b;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.group-member-name {
+    font-weight: 600;
+    color: #cfe7ff;
+    font-size: 0.98rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .friend-list h3,
 .group-list h3 {
     font-size: 1rem;

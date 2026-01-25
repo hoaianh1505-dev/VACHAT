@@ -253,6 +253,7 @@ export function initMessages({ socket } = {}) {
             const dd = getDeleteBtn(); if (dd) { dd.style.display = 'none'; dd.dataset.chatId = ''; dd.dataset.chatType = ''; }
             setInputVisible(false);
             setPresenceBarVisible(false);
+            showFriendSidebar();
         });
     }
 
@@ -562,6 +563,10 @@ export function initMessages({ socket } = {}) {
     const friendsList = document.getElementById('friends');
     const pinnedFriendSet = loadIdSet(FRIEND_PINNED_KEY);
     const mutedFriendSet = loadIdSet(FRIEND_MUTED_KEY);
+    const searchBox = document.querySelector('.chat-sidebar .search-box');
+    const friendListWrap = document.querySelector('.chat-sidebar .friend-list');
+    const groupMembersPanel = document.getElementById('group-members-panel');
+    const groupMembersList = document.getElementById('group-members');
     const presenceBar = document.getElementById('chat-presence-bar');
     const presenceName = document.getElementById('chat-presence-name');
     const presenceStatus = document.getElementById('chat-presence-status');
@@ -644,6 +649,48 @@ export function initMessages({ socket } = {}) {
         return Array.from(friendsList.querySelectorAll('.chat-item.friend-profile')).map(i => String(i.dataset.id || '')).filter(Boolean);
     }
 
+    function showFriendSidebar() {
+        if (searchBox) searchBox.style.display = 'flex';
+        if (friendListWrap) friendListWrap.style.display = 'block';
+        if (groupMembersPanel) groupMembersPanel.style.display = 'none';
+    }
+
+    function showGroupSidebar() {
+        if (searchBox) searchBox.style.display = 'none';
+        if (friendListWrap) friendListWrap.style.display = 'none';
+        if (groupMembersPanel) groupMembersPanel.style.display = 'block';
+    }
+
+    function renderGroupMembers(members = []) {
+        if (!groupMembersList) return;
+        groupMembersList.innerHTML = '';
+        members.forEach(m => {
+            const name = m && m.username ? String(m.username) : 'User';
+            const avatar = m && m.avatar && m.avatar !== '/public/avatar.png' ? String(m.avatar) : '';
+            const initials = name.trim().slice(0, 2).toUpperCase() || 'US';
+            const li = document.createElement('li');
+            li.className = 'group-member-item';
+            li.innerHTML = `${avatar ? `<img src="${avatar}" class="avatar" style="width:28px;height:28px;">` : `<div class="avatar avatar-text" style="width:28px;height:28px;">${escapeHtml(initials)}</div>`}
+                <span class="group-member-name">${escapeHtml(name)}</span>`;
+            groupMembersList.appendChild(li);
+        });
+    }
+
+    async function loadGroupMembers(groupId) {
+        if (!groupId) return;
+        try {
+            const r = await fetch(`/api/groups/members?groupId=${encodeURIComponent(String(groupId))}`, {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+            if (r.status === 401) return window.location.href = '/login';
+            const j = await r.json();
+            if (j && j.members) renderGroupMembers(j.members);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     function applyFriendState(item) {
         if (!item) return;
         const id = String(item.dataset.id || '');
@@ -685,6 +732,7 @@ export function initMessages({ socket } = {}) {
             document.querySelectorAll('.chat-item.friend-profile.active').forEach(n => n.classList.remove('active'));
             item.classList.add('active');
             setPrivateActive(false);
+            showFriendSidebar();
             const chatId = item.dataset.id;
             window.VAChat.currentChat = { type: 'friend', id: chatId };
             persistCurrentChat();
@@ -756,6 +804,9 @@ export function initMessages({ socket } = {}) {
             if (UI && typeof UI.alert === 'function') await UI.alert('Đã thêm bạn vào nhóm');
             else alert('Đã thêm bạn vào nhóm');
             closeAddMemberModal();
+            if (window.VAChat && window.VAChat.currentChat && window.VAChat.currentChat.type === 'group' && String(window.VAChat.currentChat.id) === String(groupId)) {
+                loadGroupMembers(groupId);
+            }
         } catch (e) {
             console.error(e);
             if (UI && typeof UI.alert === 'function') await UI.alert('Lỗi thêm bạn');
@@ -836,6 +887,8 @@ export function initMessages({ socket } = {}) {
             window.VAChat.showDeleteFor('group', chatId);
             setInputVisible(true);
             setPresenceBarVisible(false);
+            showGroupSidebar();
+            loadGroupMembers(chatId);
         });
     }
 

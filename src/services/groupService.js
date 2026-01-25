@@ -7,6 +7,22 @@ exports.listGroups = async () => {
     return Group.find({}).select('name members createdAt');
 };
 
+exports.getMembers = async ({ groupId, userId }) => {
+    if (!groupId) throw new Error('Missing groupId');
+    const g = await Group.findById(groupId).populate('members', 'username avatar').exec();
+    if (!g) {
+        const e = new Error('Group not found');
+        e.status = 404;
+        throw e;
+    }
+    if (userId && !g.members.map(m => String(m._id)).includes(String(userId))) {
+        const e = new Error('Forbidden');
+        e.status = 403;
+        throw e;
+    }
+    return (g.members || []).map(m => ({ _id: String(m._id), username: m.username, avatar: m.avatar }));
+};
+
 exports.createGroup = async ({ name, members, creatorId, io }) => {
     const selected = Array.isArray(members) ? members.map(String).filter(Boolean) : [];
     if (!name || !selected.length) throw new Error('Missing name or members');

@@ -7,6 +7,15 @@ exports.list = asyncHandler(async (req, res) => {
     return response.ok(res, { groups });
 });
 
+exports.members = asyncHandler(async (req, res) => {
+    const sessionUser = req.session && req.session.user;
+    if (!sessionUser) return response.err(res, 'Unauthorized', 401);
+    const groupId = req.query && req.query.groupId;
+    if (!groupId) return response.err(res, 'Missing groupId', 400);
+    const members = await groupService.getMembers({ groupId, userId: String(sessionUser._id) });
+    return response.ok(res, { members });
+});
+
 exports.create = asyncHandler(async (req, res) => {
     const sessionUser = req.session && req.session.user;
     if (!sessionUser) return response.err(res, 'Unauthorized', 401);
