@@ -227,7 +227,7 @@ export function initMessages({ socket } = {}) {
     }
 
     function applyTheme(theme) {
-        document.body.classList.remove('theme-light', 'theme-ash', 'theme-dark');
+        document.body.classList.remove('theme-light', 'theme-ocean', 'theme-dark');
         document.body.classList.add(`theme-${theme}`);
         themeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.theme === theme));
     }

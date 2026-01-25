@@ -9,16 +9,7 @@
 </head>
 
 <body>
-    <script>
-        window.userId = "<%= user && user._id ? user._id : '' %>";
-        window.userProfile = {
-            _id: "<%= user && user._id ? user._id : '' %>",
-            username: "<%= user && user.username ? user.username : '' %>",
-            email: "<%= user && user.email ? user.email : '' %>",
-            avatar: "<%= user && user.avatar ? user.avatar : '' %>",
-            lastUsernameChangedAt: "<%= user && user.lastUsernameChangedAt ? user.lastUsernameChangedAt.toISOString() : '' %>"
-        };
-    </script>
+    <script>window.userId = "<%= user && user._id ? user._id : '' %>";</script>
 
     <div class="chat-container">
         <header class="chat-header">
@@ -257,7 +248,7 @@
                     <h3>App setting</h3>
                     <div class="theme-row">
                         <button type="button" class="theme-btn" data-theme="light">Light</button>
-                        <button type="button" class="theme-btn" data-theme="ash">Ash</button>
+                        <button type="button" class="theme-btn" data-theme="ocean">Ocean</button>
                         <button type="button" class="theme-btn" data-theme="dark">Dark</button>
                     </div>
                 </div>
